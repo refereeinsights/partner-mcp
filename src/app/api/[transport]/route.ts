@@ -4,6 +4,25 @@ import { registerGetPartnerLinks } from "../../../tools/getPartnerLinks";
 import { registerGetPartnerClickSummary } from "../../../tools/getPartnerClickSummary";
 import { registerGetFanaticsRouting } from "../../../tools/getFanaticsRouting";
 import { registerGetPartnerKnowledge } from "../../../tools/getPartnerKnowledge";
+import { registerGetAdminReference } from "../../../tools/getAdminReference";
+import { registerGetAssociationDashboard } from "../../../tools/getAssociationDashboard";
+import { registerGetDatasetHealth } from "../../../tools/getDatasetHealth";
+import { registerGetEmailOutreachNumbers } from "../../../tools/getEmailOutreachNumbers";
+import { registerGetMissingFields } from "../../../tools/getMissingFields";
+import { registerGetMissingVenues } from "../../../tools/getMissingVenues";
+import { registerGetOrganizerClusters } from "../../../tools/getOrganizerClusters";
+import { registerGetStateSportCoverage } from "../../../tools/getStateSportCoverage";
+import { registerGetSummaryDashboard } from "../../../tools/getSummaryDashboard";
+import { registerGetTopOrganizerDomains } from "../../../tools/getTopOrganizerDomains";
+import { registerGetTournamentsByDomain } from "../../../tools/getTournamentsByDomain";
+import { registerGetTournamentsMissingSourceUrls } from "../../../tools/getTournamentsMissingSourceUrls";
+import { registerGetTrends } from "../../../tools/getTrends";
+import { registerGetUnverifiedTournaments } from "../../../tools/getUnverifiedTournaments";
+import { registerGetVenueClusters } from "../../../tools/getVenueClusters";
+import { registerInsertResearchNote } from "../../../tools/insertResearchNote";
+import { registerInsertTournamentCandidate } from "../../../tools/insertTournamentCandidate";
+import { registerMcpHealthcheck } from "../../../tools/mcpHealthcheck";
+import { registerUpsertOrganizerWatchlist } from "../../../tools/upsertOrganizerWatchlist";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -48,6 +67,25 @@ const mcpHandler = createMcpHandler(
     registerGetPartnerClickSummary(server);
     registerGetFanaticsRouting(server);
     registerGetPartnerKnowledge(server);
+    registerGetAdminReference(server);
+    registerGetAssociationDashboard(server);
+    registerGetDatasetHealth(server);
+    registerGetEmailOutreachNumbers(server);
+    registerGetMissingFields(server);
+    registerGetMissingVenues(server);
+    registerGetOrganizerClusters(server);
+    registerGetStateSportCoverage(server);
+    registerGetSummaryDashboard(server);
+    registerGetTopOrganizerDomains(server);
+    registerGetTournamentsByDomain(server);
+    registerGetTournamentsMissingSourceUrls(server);
+    registerGetTrends(server);
+    registerGetUnverifiedTournaments(server);
+    registerGetVenueClusters(server);
+    registerInsertResearchNote(server);
+    registerInsertTournamentCandidate(server);
+    registerMcpHealthcheck(server);
+    registerUpsertOrganizerWatchlist(server);
   },
   {},
   { basePath: "/api", maxDuration: 60 }
