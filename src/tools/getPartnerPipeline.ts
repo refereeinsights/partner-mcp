@@ -14,18 +14,17 @@ export async function fetchPartnerPipeline(): Promise<object> {
 
   const { data, error } = await query;
   if (error) {
-    const missingCol = /column "([^"]+)" does not exist/i.exec(String(error));
-    if (missingCol) {
+    if (/column "[^"]+" does not exist/i.test(error.message)) {
       const safe = "key,name,category,status,priority,partner_type,website_url,notes,is_active";
       const { data: fallback, error: fallbackError } = await supabaseAdmin
         .from("partners")
         .select(safe)
         .order("priority")
         .order("name");
-      if (fallbackError) throw fallbackError;
+      if (fallbackError) throw new Error(fallbackError.message);
       return fallback ?? [];
     }
-    throw error;
+    throw new Error(error.message);
   }
   return data ?? [];
 }

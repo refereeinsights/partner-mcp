@@ -195,7 +195,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ result }, { headers: CORS_HEADERS });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message =
+      err instanceof Error
+        ? err.message
+        : typeof err === "object" && err !== null && "message" in err
+          ? String((err as any).message)
+          : JSON.stringify(err);
     return NextResponse.json(
       { error: message },
       { status: 500, headers: CORS_HEADERS }
