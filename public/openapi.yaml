@@ -9,6 +9,7 @@ x-spec-url: https://partnermcp-git-main-rod-davis-projects.vercel.app/api/openap
 security:
   - bearerAuth: []
 components:
+  schemas: {}
   securitySchemes:
     bearerAuth:
       type: http
@@ -94,6 +95,7 @@ paths:
                 type: object
                 properties:
                   result:
+                    type: object
                     description: The tool output (structure varies by tool)
         "400":
           description: Unknown tool name
