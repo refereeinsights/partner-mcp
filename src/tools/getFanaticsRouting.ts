@@ -10,6 +10,66 @@ const SPORT_TO_SUB_ID3: Array<{ keywords: string[]; subId3: string }> = [
   { keywords: ["lacrosse"], subId3: "lacrosse" },
 ];
 
+export async function fetchFanaticsRouting(params: { sport?: string }): Promise<object> {
+  const sport = params.sport;
+  const { data: links, error } = await supabaseAdmin
+    .from("partner_links")
+    .select("id,label,url,shared_id,sub_id_1,sub_id_2,sub_id_3,partners(name)")
+    .eq("partner_key", "fanatics")
+    .eq("is_active", true);
+
+  if (error) throw error;
+  if (!links || links.length === 0) {
+    return { error: "No active Fanatics links found in database." };
+  }
+
+  let matchedSubId3: string | null = null;
+  let matchedSport: string | null = null;
+
+  if (sport) {
+    const sportLower = sport.toLowerCase();
+    for (const { keywords, subId3 } of SPORT_TO_SUB_ID3) {
+      if (keywords.some((k) => sportLower.includes(k))) {
+        matchedSubId3 = subId3;
+        matchedSport = subId3;
+        break;
+      }
+    }
+  }
+
+  let link = matchedSubId3
+    ? links.find((l: any) => l.sub_id_3 === matchedSubId3)
+    : null;
+
+  const fallbackUsed = !link;
+
+  if (!link) {
+    link = links.find(
+      (l: any) => l.sub_id_3 === "all_sports" && l.sub_id_1 === "tournament_page"
+    ) ?? links.find((l: any) => l.sub_id_3 === "all_sports") ?? links[0];
+  }
+
+  if (!link) {
+    return { error: "Could not resolve a Fanatics link." };
+  }
+
+  return {
+    input_sport: sport ?? null,
+    matched_sport: matchedSport,
+    fallback_used: fallbackUsed,
+    partner_key: "fanatics",
+    partner_name: (link as any).partners?.name ?? "Fanatics",
+    partner_link_id: (link as any).id,
+    label: (link as any).label,
+    url: (link as any).url,
+    disclosure: "Affiliate link — TournamentInsights may earn a commission on qualifying purchases.",
+    shared_id: (link as any).shared_id,
+    sub_id_1: (link as any).sub_id_1,
+    sub_id_2: (link as any).sub_id_2,
+    sub_id_3: (link as any).sub_id_3,
+  };
+}
+
 export function registerGetFanaticsRouting(server: McpServer) {
   server.registerTool(
     "get_fanatics_routing",

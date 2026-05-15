@@ -190,6 +190,15 @@ function findSections(query: string): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// Exported helper
+// ---------------------------------------------------------------------------
+
+export function findAdminReference(query: string): string {
+  const sections = findSections(query);
+  return sections.join("\n\n---\n\n");
+}
+
+// ---------------------------------------------------------------------------
 // Tool registration
 // ---------------------------------------------------------------------------
 

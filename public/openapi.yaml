@@ -1,0 +1,102 @@
+openapi: "3.1.0"
+info:
+  title: TournamentInsights Intelligence API
+  description: Data intelligence and partner monetization tools for TournamentInsights / RefereeInsights
+  version: "1.0.0"
+servers:
+  - url: https://partnermcp-git-main-rod-davis-projects.vercel.app
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+paths:
+  /api/action:
+    post:
+      operationId: invokeTool
+      summary: Invoke a TournamentInsights data or partner tool
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tool
+              properties:
+                tool:
+                  type: string
+                  enum:
+                    - get_dataset_health
+                    - get_summary_dashboard
+                    - get_trends
+                    - get_state_sport_coverage
+                    - get_missing_fields
+                    - get_organizer_clusters
+                    - get_venue_clusters
+                    - get_missing_venues
+                    - get_association_dashboard
+                    - get_email_outreach_numbers
+                    - get_top_organizer_domains
+                    - get_tournaments_by_domain
+                    - get_unverified_tournaments
+                    - get_tournaments_missing_source_urls
+                    - get_admin_reference
+                    - get_partner_pipeline
+                    - get_partner_links
+                    - get_partner_click_summary
+                    - get_fanatics_routing
+                    - get_partner_knowledge
+                    - mcp_healthcheck
+                    - insert_research_note
+                    - insert_tournament_candidate
+                    - upsert_organizer_watchlist
+                  description: |
+                    Tool to invoke. Each tool and its params:
+                    - get_dataset_health: no params. Returns health metrics.
+                    - get_summary_dashboard: no params. Returns composite dashboard.
+                    - get_trends: params: period (week|month|quarter), lookback_periods (int, max 52).
+                    - get_state_sport_coverage: params: sports (string[]), states (string[2-char arrays]), limit (int).
+                    - get_missing_fields: params: missing_any_of (string[]), sport, state, limit, offset.
+                    - get_organizer_clusters: params: min_tournaments (int, default 3), sport, state, limit.
+                    - get_venue_clusters: params: min_tournaments (int, default 2), sport, state, limit.
+                    - get_missing_venues: params: sport, state, limit (max 500).
+                    - get_association_dashboard: params: limit (int, max 200).
+                    - get_email_outreach_numbers: no params. Returns draft/sent/replies/followups.
+                    - get_top_organizer_domains: params: limit (int).
+                    - get_tournaments_by_domain: params: domain (string, required), limit (int).
+                    - get_unverified_tournaments: params: limit (int).
+                    - get_tournaments_missing_source_urls: params: limit (int).
+                    - get_admin_reference: params: query (string). Returns admin codebase reference.
+                    - get_partner_pipeline: no params. Returns partner pipeline from public.partners.
+                    - get_partner_links: params: partner_id (string, optional). Returns partner links.
+                    - get_partner_click_summary: params: start_date (YYYY-MM-DD), end_date (YYYY-MM-DD), partner_id (optional).
+                    - get_fanatics_routing: params: sport (string). Returns Fanatics affiliate routing for sport.
+                    - get_partner_knowledge: params: query (string) OR section (string). Returns knowledge base content.
+                    - mcp_healthcheck: no params. Returns server health status.
+                    - insert_research_note: params: tournament_id, note, source.
+                    - insert_tournament_candidate: params: name, sport, city, state, url.
+                    - upsert_organizer_watchlist: params: domain, label, ecosystem.
+                params:
+                  type: object
+                  description: Tool-specific parameters as described in the tool enum
+      responses:
+        "200":
+          description: Successful tool result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    description: The tool output (structure varies by tool)
+        "400":
+          description: Unknown tool name
+        "401":
+          description: Missing or invalid bearer token
+        "500":
+          description: Tool execution error

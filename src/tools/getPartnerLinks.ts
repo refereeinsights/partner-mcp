@@ -2,6 +2,39 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { supabaseAdmin } from "../lib/supabaseAdmin";
 
+export async function fetchPartnerLinks(params: { partner_id?: string }): Promise<object> {
+  let query = supabaseAdmin
+    .from("partner_links")
+    .select(
+      "id,partner_key,label,url,destination_type,page_type,placement,sport,campaign,shared_id,sub_id_1,sub_id_2,sub_id_3,is_active,partners(name)"
+    )
+    .eq("is_active", true);
+
+  if (params.partner_id) query = (query as any).eq("partner_key", params.partner_id);
+  query = query.order("label");
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => ({
+    partner_key: row.partner_key,
+    partner_name: row.partners?.name ?? null,
+    id: row.id,
+    label: row.label,
+    url: row.url,
+    destination_type: row.destination_type,
+    page_type: row.page_type,
+    placement: row.placement,
+    sport: row.sport,
+    campaign: row.campaign,
+    shared_id: row.shared_id,
+    sub_id_1: row.sub_id_1,
+    sub_id_2: row.sub_id_2,
+    sub_id_3: row.sub_id_3,
+    is_active: row.is_active,
+  }));
+}
+
 export function registerGetPartnerLinks(server: McpServer) {
   server.registerTool(
     "get_partner_links",

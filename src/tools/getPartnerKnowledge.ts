@@ -29,7 +29,7 @@ function loadKnowledge() {
   return { sections: _sections, toc: _toc };
 }
 
-function findSections(query?: string, section?: string): string {
+export function findSections(query?: string, section?: string): string {
   const { sections, toc } = loadKnowledge();
 
   if (!query && !section) {

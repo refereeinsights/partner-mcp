@@ -2,6 +2,34 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { supabaseAdmin } from "../lib/supabaseAdmin";
 
+export async function fetchPartnerPipeline(): Promise<object> {
+  let query = supabaseAdmin
+    .from("partners")
+    .select(
+      "key,name,category,status,priority,partner_type,website_url,application_url,contact_email,revenue_tracking_status,revenue_source,notes,is_active"
+    )
+    .eq("is_active", true)
+    .order("priority")
+    .order("name");
+
+  const { data, error } = await query;
+  if (error) {
+    const missingCol = /column "([^"]+)" does not exist/i.exec(String(error));
+    if (missingCol) {
+      const safe = "key,name,category,status,priority,partner_type,website_url,notes,is_active";
+      const { data: fallback, error: fallbackError } = await supabaseAdmin
+        .from("partners")
+        .select(safe)
+        .order("priority")
+        .order("name");
+      if (fallbackError) throw fallbackError;
+      return fallback ?? [];
+    }
+    throw error;
+  }
+  return data ?? [];
+}
+
 export function registerGetPartnerPipeline(server: McpServer) {
   server.registerTool(
     "get_partner_pipeline",
