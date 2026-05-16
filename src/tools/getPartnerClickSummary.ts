@@ -2,10 +2,26 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { supabaseAdmin, fetchAllPaginated } from "../lib/supabaseAdmin";
 
-export async function fetchPartnerClickSummary(params: {
+const BOOK_TRAVEL_EVENTS = [
+  "book_travel_viewed",
+  "book_travel_add_event_clicked",
+  "book_travel_shared",
+];
+
+const ALL_TRACKED_EVENTS = [
+  ...BOOK_TRAVEL_EVENTS,
+  "tournament_detail_more_in_state_clicked",
+  "venue_page_viewed",
+  "map_viewed",
+  "map_state_clicked",
+  "homepage_cta_clicked",
+  "homepage_sport_chip_clicked",
+  "map_filter_changed",
+];
+
+async function fetchEngagementSummary(params: {
   start_date?: string;
   end_date?: string;
-  partner_id?: string;
 }): Promise<object> {
   const end = params.end_date ?? new Date().toISOString().slice(0, 10);
   const start = params.start_date ?? (() => {
@@ -17,124 +33,64 @@ export async function fetchPartnerClickSummary(params: {
   const rows = await fetchAllPaginated((from, to) =>
     supabaseAdmin
       .from("ti_map_events")
-      .select("properties,created_at")
-      .eq("event_name", "partner_click_clicked")
+      .select("event_name,properties,created_at")
+      .in("event_name", ALL_TRACKED_EVENTS)
       .gte("created_at", `${start}T00:00:00Z`)
       .lte("created_at", `${end}T23:59:59Z`)
       .range(from, to) as any
   );
 
-  const clicksByPartner: Record<string, number> = {};
-  const clicksBySport: Record<string, number> = {};
-  const clicksByPageType: Record<string, number> = {};
-  const clicksByPlacement: Record<string, number> = {};
-  let lastClickAt: string | null = null;
+  const byEvent: Record<string, number> = {};
+  const bookTravel: Record<string, number> = {};
+  let lastEventAt: string | null = null;
   let total = 0;
 
   for (const row of rows) {
-    const p = (row as any).properties ?? {};
-    const rPartnerKey = p.partner_key ?? "unknown";
-    const rSport = p.sport ?? "unknown";
-    const rPageType = p.page_type ?? "unknown";
-    const rPlacement = p.placement ?? "unknown";
-
-    if (params.partner_id && rPartnerKey !== params.partner_id) continue;
-
+    const name: string = (row as any).event_name;
     total += 1;
-    clicksByPartner[rPartnerKey] = (clicksByPartner[rPartnerKey] ?? 0) + 1;
-    clicksBySport[rSport] = (clicksBySport[rSport] ?? 0) + 1;
-    clicksByPageType[rPageType] = (clicksByPageType[rPageType] ?? 0) + 1;
-    clicksByPlacement[rPlacement] = (clicksByPlacement[rPlacement] ?? 0) + 1;
-
-    const ts = (row as any).created_at;
-    if (ts && (!lastClickAt || ts > lastClickAt)) lastClickAt = ts;
+    byEvent[name] = (byEvent[name] ?? 0) + 1;
+    if (BOOK_TRAVEL_EVENTS.includes(name)) {
+      bookTravel[name] = (bookTravel[name] ?? 0) + 1;
+    }
+    const ts: string = (row as any).created_at;
+    if (ts && (!lastEventAt || ts > lastEventAt)) lastEventAt = ts;
   }
 
   return {
     period: { start, end },
-    total_clicks: total,
-    clicks_by_partner: clicksByPartner,
-    clicks_by_sport: clicksBySport,
-    clicks_by_page_type: clicksByPageType,
-    clicks_by_placement: clicksByPlacement,
-    last_click_at: lastClickAt,
+    total_events: total,
+    by_event: byEvent,
+    book_travel_events: bookTravel,
+    last_event_at: lastEventAt,
+    note: "partner_click_clicked events will appear here once affiliate link tracking is instrumented in the frontend",
   };
+}
+
+export async function fetchPartnerClickSummary(params: {
+  start_date?: string;
+  end_date?: string;
+  partner_id?: string;
+}): Promise<object> {
+  return fetchEngagementSummary(params);
 }
 
 export function registerGetPartnerClickSummary(server: McpServer) {
   server.registerTool(
     "get_partner_click_summary",
     {
-      title: "Get Partner Click Summary",
+      title: "Get Engagement Summary",
       description:
-        "Aggregate partner click counts from public.ti_map_events (event_name = partner_click_clicked) over a date range.",
+        "Aggregate user engagement events from public.ti_map_events over a date range. Covers book_travel actions (monetization signal), map activity, venue views, and homepage CTAs. Partner affiliate click events (partner_click_clicked) will appear here once instrumented.",
       inputSchema: {
         startDate: z.string().optional().describe("Start date YYYY-MM-DD (default: 30 days ago)"),
         endDate: z.string().optional().describe("End date YYYY-MM-DD (default: today)"),
-        partnerKey: z.string().optional().describe("Filter to a specific partner key"),
-        sport: z.string().optional().describe("Filter by sport in event properties"),
-        pageType: z.string().optional().describe("Filter by page_type in event properties"),
-        placement: z.string().optional().describe("Filter by placement in event properties"),
       },
     },
-    async ({ startDate, endDate, partnerKey, sport, pageType, placement }) => {
-      const end = endDate ?? new Date().toISOString().slice(0, 10);
-      const start = startDate ?? (() => {
-        const d = new Date();
-        d.setDate(d.getDate() - 30);
-        return d.toISOString().slice(0, 10);
-      })();
-
-      const rows = await fetchAllPaginated((from, to) =>
-        supabaseAdmin
-          .from("ti_map_events")
-          .select("properties,created_at")
-          .eq("event_name", "partner_click_clicked")
-          .gte("created_at", `${start}T00:00:00Z`)
-          .lte("created_at", `${end}T23:59:59Z`)
-          .range(from, to) as any
-      );
-
-      // Filter and aggregate in JS from JSONB properties column
-      const clicksByPartner: Record<string, number> = {};
-      const clicksBySport: Record<string, number> = {};
-      const clicksByPageType: Record<string, number> = {};
-      const clicksByPlacement: Record<string, number> = {};
-      let lastClickAt: string | null = null;
-      let total = 0;
-
-      for (const row of rows) {
-        const p = (row as any).properties ?? {};
-        const rPartnerKey = p.partner_key ?? "unknown";
-        const rSport = p.sport ?? "unknown";
-        const rPageType = p.page_type ?? "unknown";
-        const rPlacement = p.placement ?? "unknown";
-
-        if (partnerKey && rPartnerKey !== partnerKey) continue;
-        if (sport && rSport !== sport) continue;
-        if (pageType && rPageType !== pageType) continue;
-        if (placement && rPlacement !== placement) continue;
-
-        total += 1;
-        clicksByPartner[rPartnerKey] = (clicksByPartner[rPartnerKey] ?? 0) + 1;
-        clicksBySport[rSport] = (clicksBySport[rSport] ?? 0) + 1;
-        clicksByPageType[rPageType] = (clicksByPageType[rPageType] ?? 0) + 1;
-        clicksByPlacement[rPlacement] = (clicksByPlacement[rPlacement] ?? 0) + 1;
-
-        const ts = (row as any).created_at;
-        if (ts && (!lastClickAt || ts > lastClickAt)) lastClickAt = ts;
-      }
-
-      const result = {
-        period: { start, end },
-        total_clicks: total,
-        clicks_by_partner: clicksByPartner,
-        clicks_by_sport: clicksBySport,
-        clicks_by_page_type: clicksByPageType,
-        clicks_by_placement: clicksByPlacement,
-        last_click_at: lastClickAt,
-      };
-
+    async ({ startDate, endDate }) => {
+      const result = await fetchEngagementSummary({
+        start_date: startDate,
+        end_date: endDate,
+      });
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     }
   );
