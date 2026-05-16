@@ -57,6 +57,12 @@ paths:
                     - insert_research_note
                     - insert_tournament_candidate
                     - upsert_organizer_watchlist
+                    - upsert_partner
+                    - upsert_partner_link
+                    - insert_partner_note
+                    - update_partner_status
+                    - upsert_partner_placement
+                    - insert_partner_test_result
                   description: |
                     Tool to invoke. Each tool and its params:
                     - get_dataset_health: no params. Returns health metrics.
@@ -83,6 +89,12 @@ paths:
                     - insert_research_note: params: tournament_id, note, source.
                     - insert_tournament_candidate: params: name, sport, city, state, url.
                     - upsert_organizer_watchlist: params: domain, label, ecosystem.
+                    - upsert_partner: params: key (required), name (required), category, status, priority, partner_type, website_url, application_url, contact_email, disclosure_text, notes, is_active.
+                    - upsert_partner_link: params: partner_id (required), label (required), url (required), id (for update), destination_type, page_type, placement, sport, campaign, shared_id, sub_id_1, sub_id_2, sub_id_3, is_active, sort_order.
+                    - insert_partner_note: params: partner_key (required), note (required), note_type (general|outreach|negotiation|implementation|qa), created_by.
+                    - update_partner_status: params: key (required), status (required).
+                    - upsert_partner_placement: params: partner_key (required), placement_type (required), label, is_active, config.
+                    - insert_partner_test_result: params: partner_key (required), experiment_name (required), ctr, clicks, conversions, notes, tested_at (YYYY-MM-DD).
                 params:
                   type: object
                   description: Tool-specific parameters as described in the tool enum

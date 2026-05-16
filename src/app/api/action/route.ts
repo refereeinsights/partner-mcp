@@ -24,6 +24,12 @@ import { fetchPartnerClickSummary } from "../../../tools/getPartnerClickSummary"
 import { fetchFanaticsRouting } from "../../../tools/getFanaticsRouting";
 import { findSections } from "../../../tools/getPartnerKnowledge";
 import { findAdminReference } from "../../../tools/getAdminReference";
+import { upsertPartner } from "../../../tools/upsertPartner";
+import { upsertPartnerLink } from "../../../tools/upsertPartnerLink";
+import { insertPartnerNote } from "../../../tools/insertPartnerNote";
+import { updatePartnerStatus } from "../../../tools/updatePartnerStatus";
+import { upsertPartnerPlacement } from "../../../tools/upsertPartnerPlacement";
+import { insertPartnerTestResult } from "../../../tools/insertPartnerTestResult";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -181,6 +187,30 @@ export async function POST(request: Request) {
         result = { result: text };
         break;
       }
+
+      case "upsert_partner":
+        result = await upsertPartner(params as any);
+        break;
+
+      case "upsert_partner_link":
+        result = await upsertPartnerLink(params as any);
+        break;
+
+      case "insert_partner_note":
+        result = await insertPartnerNote(params as any);
+        break;
+
+      case "update_partner_status":
+        result = await updatePartnerStatus(params as any);
+        break;
+
+      case "upsert_partner_placement":
+        result = await upsertPartnerPlacement(params as any);
+        break;
+
+      case "insert_partner_test_result":
+        result = await insertPartnerTestResult(params as any);
+        break;
 
       case "mcp_healthcheck":
         result = { result: { status: "ok", ts: new Date().toISOString() } };

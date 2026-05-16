@@ -23,6 +23,12 @@ import { registerInsertResearchNote } from "../../../tools/insertResearchNote";
 import { registerInsertTournamentCandidate } from "../../../tools/insertTournamentCandidate";
 import { registerMcpHealthcheck } from "../../../tools/mcpHealthcheck";
 import { registerUpsertOrganizerWatchlist } from "../../../tools/upsertOrganizerWatchlist";
+import { registerUpsertPartner } from "../../../tools/upsertPartner";
+import { registerUpsertPartnerLink } from "../../../tools/upsertPartnerLink";
+import { registerInsertPartnerNote } from "../../../tools/insertPartnerNote";
+import { registerUpdatePartnerStatus } from "../../../tools/updatePartnerStatus";
+import { registerUpsertPartnerPlacement } from "../../../tools/upsertPartnerPlacement";
+import { registerInsertPartnerTestResult } from "../../../tools/insertPartnerTestResult";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -86,6 +92,12 @@ const mcpHandler = createMcpHandler(
     registerInsertTournamentCandidate(server);
     registerMcpHealthcheck(server);
     registerUpsertOrganizerWatchlist(server);
+    registerUpsertPartner(server);
+    registerUpsertPartnerLink(server);
+    registerInsertPartnerNote(server);
+    registerUpdatePartnerStatus(server);
+    registerUpsertPartnerPlacement(server);
+    registerInsertPartnerTestResult(server);
   },
   {},
   { basePath: "/api", maxDuration: 60 }
