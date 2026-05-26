@@ -1,19 +1,23 @@
-openapi: "3.1.0"
+openapi: 3.1.0
 info:
   title: TournamentInsights Intelligence API
   description: Data intelligence and partner monetization tools for TournamentInsights / RefereeInsights
-  version: "1.1.0"
+  version: 1.1.0
+
 servers:
   - url: https://partnermcp-git-main-rod-davis-projects.vercel.app
+
 x-spec-url: https://partnermcp-git-main-rod-davis-projects.vercel.app/api/openapi
+
 security:
   - bearerAuth: []
+
 components:
-  schemas: {}
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
+
 paths:
   /api/action:
     post:
@@ -21,7 +25,7 @@ paths:
       summary: Invoke a TournamentInsights data or partner tool
       description: >
         Pass "tool" plus any tool-specific parameters at the top level of the
-        request body. Do NOT nest parameters — include them alongside "tool".
+        request body. Do not nest parameters. Include parameters alongside "tool".
       security:
         - bearerAuth: []
       requestBody:
@@ -69,48 +73,43 @@ paths:
                     - upsert_partner_placement
                     - insert_partner_test_result
 
-                # ── Shared filter params ──────────────────────────────────
                 sport:
                   type: string
-                  description: >
-                    Single sport filter. One of: soccer, baseball, softball,
-                    lacrosse, basketball, hockey, volleyball, futsal.
-                    Used by: get_missing_venues, get_organizer_clusters,
-                    get_venue_clusters, get_missing_fields,
-                    get_top_organizer_domains, get_unverified_tournaments,
-                    get_tournaments_missing_source_urls.
+                  description: Single sport filter.
+                  enum:
+                    - soccer
+                    - baseball
+                    - softball
+                    - lacrosse
+                    - basketball
+                    - hockey
+                    - volleyball
+                    - futsal
+
                 state:
                   type: string
-                  description: >
-                    Single 2-letter US state code (e.g. CA, TX).
-                    Used by: get_missing_venues, get_organizer_clusters,
-                    get_venue_clusters, get_missing_fields,
-                    get_top_organizer_domains, get_unverified_tournaments,
-                    get_tournaments_missing_source_urls.
+                  description: Single 2-letter US state code, for example CA or TX.
+
                 sports:
                   type: array
                   items:
                     type: string
-                  description: >
-                    Multiple sport filter. Used by: get_state_sport_coverage,
-                    get_tournament_venue_worklist.
+                  description: Multiple sport filter.
+
                 states:
                   type: array
                   items:
                     type: string
-                  description: >
-                    Multiple 2-letter state codes. Used by:
-                    get_state_sport_coverage, get_tournament_venue_worklist.
+                  description: Multiple 2-letter US state codes.
+
                 limit:
                   type: integer
-                  description: >
-                    Maximum rows to return. Defaults and maximums vary by tool
-                    (typically 100 default, 200–500 max).
+                  description: Maximum rows to return.
+
                 offset:
                   type: integer
-                  description: Pagination offset (0-based).
+                  description: Pagination offset, 0-based.
 
-                # ── Tournament Venue Worklist ─────────────────────────────
                 venue_status:
                   type: string
                   enum:
@@ -119,172 +118,182 @@ paths:
                     - missing_or_incomplete
                     - complete
                     - any
-                  description: >
-                    Filter by venue completeness. "missing" = no venue linked;
-                    "incomplete" = venue exists but missing name/city/state;
-                    "missing_or_incomplete" = either; "any" = all (default).
-                    Used by: get_tournament_venue_worklist.
+                  description: Venue completeness filter.
+
                 date_from:
                   type: string
-                  description: >
-                    Start of date window, YYYY-MM-DD. Overrides
-                    weeks_from_now_start. Used by: get_tournament_venue_worklist.
+                  description: Start of date window, YYYY-MM-DD.
+
                 date_to:
                   type: string
-                  description: >
-                    End of date window, YYYY-MM-DD. Overrides
-                    weeks_from_now_end. Used by: get_tournament_venue_worklist.
+                  description: End of date window, YYYY-MM-DD.
+
                 weeks_from_now_start:
                   type: integer
-                  description: >
-                    Weeks from today to start the date window (default 2).
-                    Used by: get_tournament_venue_worklist.
+                  description: Weeks from today to start the date window.
+
                 weeks_from_now_end:
                   type: integer
-                  description: >
-                    Weeks from today to end the date window (default 6).
-                    Used by: get_tournament_venue_worklist.
+                  description: Weeks from today to end the date window.
 
-                # ── Cluster / coverage tools ──────────────────────────────
                 min_tournaments:
                   type: integer
-                  description: >
-                    Minimum tournament count to include a cluster.
-                    Used by: get_organizer_clusters (default 3),
-                    get_venue_clusters (default 2),
-                    get_top_organizer_domains (default 3).
+                  description: Minimum tournament count to include.
+
                 missing_any_of:
                   type: array
                   items:
                     type: string
-                  description: >
-                    Fields to check for missingness. Used by: get_missing_fields.
-                    Values: official_website_url, tournament_director,
-                    tournament_director_email, referee_contact,
-                    referee_contact_email, start_date, end_date, city, state.
+                    enum:
+                      - official_website_url
+                      - tournament_director
+                      - tournament_director_email
+                      - referee_contact
+                      - referee_contact_email
+                      - start_date
+                      - end_date
+                      - city
+                      - state
+                  description: Fields to check for missingness.
+
                 domain:
                   type: string
-                  description: >
-                    Root domain to filter by (e.g. "gotsoccer.com").
-                    Used by: get_tournaments_by_domain, get_top_organizer_domains.
+                  description: Root domain to filter by, for example gotsoccer.com.
 
-                # ── Trends ────────────────────────────────────────────────
                 period:
                   type: string
                   enum:
                     - week
                     - month
                     - quarter
-                  description: Bucketing period. Used by: get_trends.
+                  description: Bucketing period for trends.
+
                 lookback_periods:
                   type: integer
-                  description: Number of periods to return. Used by: get_trends (max 52).
+                  description: Number of periods to return.
 
-                # ── Knowledge / reference tools ───────────────────────────
                 query:
                   type: string
-                  description: >
-                    Search query. Used by: get_partner_knowledge,
-                    get_admin_reference.
+                  description: Search query.
+
                 section:
                   type: string
-                  description: Named section to retrieve. Used by: get_partner_knowledge.
+                  description: Named knowledge/reference section to retrieve.
 
-                # ── Partner read tools ────────────────────────────────────
                 partner_id:
                   type: string
-                  description: Partner ID. Used by: get_partner_links, get_partner_click_summary.
+                  description: Partner ID.
+
                 start_date:
                   type: string
-                  description: Start date YYYY-MM-DD. Used by: get_partner_click_summary.
+                  description: Start date, YYYY-MM-DD.
+
                 end_date:
                   type: string
-                  description: End date YYYY-MM-DD. Used by: get_partner_click_summary.
+                  description: End date, YYYY-MM-DD.
 
-                # ── Write tools ───────────────────────────────────────────
                 key:
                   type: string
-                  description: Partner key. Used by: upsert_partner, update_partner_status.
+                  description: Partner key.
+
                 name:
                   type: string
-                  description: Display name. Used by: upsert_partner.
+                  description: Display name.
+
                 status:
                   type: string
-                  description: Status value. Used by: upsert_partner, update_partner_status.
+                  description: Status value.
+
                 organizer_domain:
                   type: string
-                  description: Domain to watchlist. Used by: upsert_organizer_watchlist.
+                  description: Domain to watchlist.
+
                 reason:
                   type: string
-                  description: Reason text. Used by: upsert_organizer_watchlist.
+                  description: Reason text.
+
                 tags:
                   type: array
                   items:
                     type: string
-                  description: Tags. Used by: upsert_organizer_watchlist.
+                  description: Tags.
+
                 source_url:
                   type: string
-                  description: Source URL. Used by: insert_tournament_candidate, insert_research_note.
+                  description: Source URL.
+
                 entity_type:
                   type: string
-                  description: Entity type. Used by: insert_research_note.
+                  description: Entity type.
+
                 entity_id:
                   type: string
-                  description: Entity ID. Used by: insert_research_note.
+                  description: Entity ID.
+
                 title:
                   type: string
-                  description: Title. Used by: insert_research_note.
+                  description: Title.
+
                 note:
                   type: string
-                  description: Note text. Used by: insert_research_note, insert_partner_note.
+                  description: Note text.
+
                 partner_key:
                   type: string
-                  description: Partner key. Used by: insert_partner_note, update_partner_status, upsert_partner_placement, insert_partner_test_result.
+                  description: Partner key.
+
                 note_type:
                   type: string
-                  description: Note type. Used by: insert_partner_note.
+                  description: Note type.
+
                 label:
                   type: string
-                  description: Display label. Used by: upsert_partner_link, upsert_partner_placement.
+                  description: Display label.
+
                 url:
                   type: string
-                  description: Affiliate URL. Used by: upsert_partner_link.
+                  description: Affiliate or target URL.
+
                 placement_type:
                   type: string
-                  description: Placement type. Used by: upsert_partner_placement.
+                  description: Placement type.
+
                 experiment_name:
                   type: string
-                  description: Experiment name. Used by: insert_partner_test_result.
+                  description: Experiment name.
+
                 ctr:
                   type: number
-                  description: Click-through rate. Used by: insert_partner_test_result.
+                  description: Click-through rate.
+
                 clicks:
                   type: integer
-                  description: Click count. Used by: insert_partner_test_result.
+                  description: Click count.
+
                 conversions:
                   type: integer
-                  description: Conversion count. Used by: insert_partner_test_result.
+                  description: Conversion count.
+
                 notes:
                   type: string
-                  description: Freeform notes. Used by: insert_partner_test_result.
+                  description: Freeform notes.
+
                 tested_at:
                   type: string
-                  description: Test date YYYY-MM-DD. Used by: insert_partner_test_result.
-
+                  description: Test date, YYYY-MM-DD.
       responses:
         "200":
-          description: Successful tool result
+          description: Successful tool result.
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   result:
-                    type: object
-                    description: The tool output (structure varies by tool)
+                    description: Tool output. Structure varies by tool.
         "400":
-          description: Unknown tool name
+          description: Unknown tool name or invalid request.
         "401":
-          description: Missing or invalid bearer token
+          description: Missing or invalid bearer token.
         "500":
-          description: Tool execution error
+          description: Tool execution error.
