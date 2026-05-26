@@ -420,3 +420,62 @@ export const mcpHealthcheckOutput = z.object({
   service_role_key_present: z.boolean(),
   ts: z.string()
 });
+
+// Tournament Venue Worklist
+export const getTournamentVenueWorklistInput = z.object({
+  date_from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "must be YYYY-MM-DD")
+    .optional(),
+  date_to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "must be YYYY-MM-DD")
+    .optional(),
+  weeks_from_now_start: z.number().int().min(0).max(52).optional(),
+  weeks_from_now_end: z.number().int().min(0).max(52).optional(),
+  states: z.array(stateSchema).optional(),
+  sports: z.array(sportSchema).optional(),
+  venue_status: z
+    .enum(["missing", "incomplete", "missing_or_incomplete", "complete", "any"])
+    .optional()
+    .default("any"),
+  limit: z.number().int().positive().max(500).optional().default(100),
+  offset: z.number().int().nonnegative().optional().default(0)
+});
+
+export const tournamentVenueWorklistRowSchema = z.object({
+  tournament_id: z.string(),
+  tournament_name: z.string(),
+  sport: z.string().nullable(),
+  tournament_city: z.string().nullable(),
+  tournament_state: z.string().nullable(),
+  start_date: z.string().nullable(),
+  end_date: z.string().nullable(),
+  host_org: z.string().nullable(),
+  official_website_url: z.string().nullable(),
+  has_director_email: z.boolean(),
+  venue_id: z.string().nullable(),
+  venue_name: z.string().nullable(),
+  venue_city: z.string().nullable(),
+  venue_state: z.string().nullable(),
+  missing_venue_fields: z.array(z.string()),
+  venue_status: z.enum(["missing", "incomplete", "complete"]),
+  priority_score: z.number()
+});
+
+export const getTournamentVenueWorklistOutput = z.object({
+  date_window: z.object({ from: z.string(), to: z.string() }),
+  total_matched: z.number(),
+  returned: z.number(),
+  venue_status_summary: z.object({
+    missing: z.number(),
+    incomplete: z.number(),
+    complete: z.number()
+  }),
+  tournaments: z.array(tournamentVenueWorklistRowSchema),
+  generated_at: z.string()
+});
+
+export type TournamentVenueWorklistFilters = z.infer<typeof getTournamentVenueWorklistInput>;
+export type TournamentVenueWorklistRow = z.infer<typeof tournamentVenueWorklistRowSchema>;
+export type TournamentVenueWorklistResult = z.infer<typeof getTournamentVenueWorklistOutput>;

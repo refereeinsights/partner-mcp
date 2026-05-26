@@ -9,6 +9,9 @@ import {
   ResearchBatchRow,
   StateSportCoverageRow,
   SummaryDashboard,
+  TournamentVenueWorklistFilters,
+  TournamentVenueWorklistResult,
+  TournamentVenueWorklistRow,
   TrendRow,
   VenueCluster
 } from "./schemas";
@@ -1175,6 +1178,10 @@ export async function getTournamentsMissingSourceUrls(filters: {
   return [];
 }
 
+function toISODate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
 function assertWritesEnabled() {
   if (process.env.ENABLE_MCP_WRITES !== "true") {
     throw new Error("Write tools are disabled. Set ENABLE_MCP_WRITES=true to enable.");
@@ -1381,4 +1388,189 @@ export async function exportResearchBatch(filters: {
     official_website_url: row.official_website_url,
     priority_reason: reason(row)
   }));
+}
+
+export async function getTournamentVenueWorklist(
+  filters: TournamentVenueWorklistFilters
+): Promise<TournamentVenueWorklistResult> {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
+
+  const weeksStart = filters.weeks_from_now_start ?? 2;
+  const weeksEnd = filters.weeks_from_now_end ?? 6;
+
+  const dateFrom = filters.date_from ?? toISODate(new Date(todayMs + weeksStart * 7 * 86_400_000));
+  const dateTo = filters.date_to ?? toISODate(new Date(todayMs + weeksEnd * 7 * 86_400_000));
+
+  if (dateFrom > dateTo) {
+    throw new Error(`date_from (${dateFrom}) must be ≤ date_to (${dateTo})`);
+  }
+
+  const generated_at = new Date().toISOString();
+
+  if (mockMode()) {
+    return {
+      date_window: { from: dateFrom, to: dateTo },
+      total_matched: 0,
+      returned: 0,
+      venue_status_summary: { missing: 0, incomplete: 0, complete: 0 },
+      tournaments: [],
+      generated_at
+    };
+  }
+
+  const supabase = getSupabaseClient();
+
+  // Fetch all published canonical tournaments in the date window.
+  const requiredTournamentCols = ["id", "name", "sport", "city", "state", "start_date", "end_date", "official_website_url", "tournament_director_email"];
+  const optionalTournamentCols = ["host_org"];
+  let tournamentCols = [...requiredTournamentCols, ...optionalTournamentCols];
+  let tournaments: any[] = [];
+
+  while (true) {
+    try {
+      tournaments = await fetchAllPaginated((from, to) => {
+        let query = supabase
+          .from("tournaments")
+          .select(tournamentCols.join(","))
+          .gte("start_date", dateFrom)
+          .lte("start_date", dateTo)
+          .eq("status", "published")
+          .eq("is_canonical", true);
+        if (filters.sports?.length) query = query.in("sport", filters.sports);
+        if (filters.states?.length) query = query.in("state", filters.states);
+        return query.range(from, to);
+      });
+      break;
+    } catch (error: any) {
+      const missingCol =
+        (error?.message?.match(/column ["']?([\w\.]+)["']? does not exist/i) ||
+          error?.details?.match(/column ["']?([\w\.]+)["']? does not exist/i))?.[1]
+          ?.split(".")
+          .pop();
+      if (missingCol && tournamentCols.includes(missingCol) && !requiredTournamentCols.includes(missingCol)) {
+        tournamentCols = tournamentCols.filter((c) => c !== missingCol);
+        console.error(JSON.stringify({ missingCol }), "get_tournament_venue_worklist_missing_column");
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  // Fetch venue links for the matched tournament IDs.
+  const tournamentIds = (tournaments as any[]).map((t) => t.id).filter(Boolean);
+  const venueByTournament = new Map<string, any>();
+  const chunkSize = 200;
+
+  for (let i = 0; i < tournamentIds.length; i += chunkSize) {
+    const chunk = tournamentIds.slice(i, i + chunkSize);
+    const rows = await fetchAllPaginated((from, to) =>
+      supabase
+        .from("tournament_venues")
+        .select("tournament_id, venues:venue_id(id,name,city,state)")
+        .in("tournament_id", chunk)
+        .range(from, to)
+    );
+    for (const row of (rows ?? []) as any[]) {
+      // Keep the first venue per tournament if there are multiple.
+      if (row?.tournament_id && row?.venues && !venueByTournament.has(row.tournament_id)) {
+        venueByTournament.set(row.tournament_id, row.venues);
+      }
+    }
+  }
+
+  // Classify venue status and compute priority score for each tournament.
+  const allRows: TournamentVenueWorklistRow[] = [];
+
+  for (const t of tournaments as any[]) {
+    const venue = venueByTournament.get(t.id) ?? null;
+
+    let venue_status: "missing" | "incomplete" | "complete";
+    const missing_venue_fields: string[] = [];
+
+    if (!venue) {
+      venue_status = "missing";
+    } else {
+      if (!venue.name) missing_venue_fields.push("name");
+      if (!venue.city) missing_venue_fields.push("city");
+      if (!venue.state) missing_venue_fields.push("state");
+      venue_status = missing_venue_fields.length > 0 ? "incomplete" : "complete";
+    }
+
+    let priority_score = 0;
+    if (venue_status === "missing") priority_score += 100;
+    else if (venue_status === "incomplete") priority_score += 80;
+
+    if (t.start_date) {
+      const daysUntil = (new Date(t.start_date).getTime() - todayMs) / 86_400_000;
+      if (daysUntil >= 0 && daysUntil < 21) priority_score += 30;
+    }
+    if (!t.official_website_url) priority_score += 20;
+    if (!t.tournament_director_email) priority_score += 10;
+
+    allRows.push({
+      tournament_id: t.id,
+      tournament_name: t.name,
+      sport: t.sport ?? null,
+      tournament_city: t.city ?? null,
+      tournament_state: t.state ?? null,
+      start_date: t.start_date ?? null,
+      end_date: t.end_date ?? null,
+      host_org: t.host_org ?? null,
+      official_website_url: t.official_website_url ?? null,
+      has_director_email: Boolean(t.tournament_director_email),
+      venue_id: venue?.id ?? null,
+      venue_name: venue?.name ?? null,
+      venue_city: venue?.city ?? null,
+      venue_state: venue?.state ?? null,
+      missing_venue_fields,
+      venue_status,
+      priority_score
+    });
+  }
+
+  // Filter by venue_status.
+  const statusFilter = filters.venue_status ?? "any";
+  const filtered =
+    statusFilter === "any"
+      ? allRows
+      : allRows.filter((r) => {
+          if (statusFilter === "missing_or_incomplete")
+            return r.venue_status === "missing" || r.venue_status === "incomplete";
+          return r.venue_status === statusFilter;
+        });
+
+  // Sort: priority_score desc, start_date asc, then sport / state / name.
+  filtered.sort((a, b) => {
+    if (b.priority_score !== a.priority_score) return b.priority_score - a.priority_score;
+    const ad = a.start_date ?? "";
+    const bd = b.start_date ?? "";
+    if (ad !== bd) return ad.localeCompare(bd);
+    const as_ = a.sport ?? "";
+    const bs_ = b.sport ?? "";
+    if (as_ !== bs_) return as_.localeCompare(bs_);
+    const ast = a.tournament_state ?? "";
+    const bst = b.tournament_state ?? "";
+    if (ast !== bst) return ast.localeCompare(bst);
+    return a.tournament_name.localeCompare(b.tournament_name);
+  });
+
+  // Summary over all filtered rows (not just the current page).
+  const venue_status_summary = { missing: 0, incomplete: 0, complete: 0 };
+  for (const r of filtered) venue_status_summary[r.venue_status]++;
+
+  // Paginate.
+  const offset = filters.offset ?? 0;
+  const limit = filters.limit ?? 100;
+  const page = filtered.slice(offset, offset + limit);
+
+  return {
+    date_window: { from: dateFrom, to: dateTo },
+    total_matched: filtered.length,
+    returned: page.length,
+    venue_status_summary,
+    tournaments: page,
+    generated_at
+  };
 }
