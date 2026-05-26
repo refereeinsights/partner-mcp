@@ -8,6 +8,7 @@ import {
   getOrganizerClusters,
   getVenueClusters,
   getMissingVenues,
+  getTournamentVenueWorklist,
   getAssociationDashboard,
   getEmailOutreachNumbers,
   getTopOrganizerDomains,
@@ -18,6 +19,7 @@ import {
   insertTournamentCandidate,
   upsertOrganizerWatchlist,
 } from "../../../lib/queries";
+import { getTournamentVenueWorklistInput } from "../../../lib/schemas";
 import { fetchPartnerPipeline } from "../../../tools/getPartnerPipeline";
 import { fetchPartnerLinks } from "../../../tools/getPartnerLinks";
 import { fetchPartnerClickSummary } from "../../../tools/getPartnerClickSummary";
@@ -73,9 +75,9 @@ export async function POST(request: Request) {
   const authError = checkAuth(request);
   if (authError) return authError;
 
-  let body: { tool: string; params?: Record<string, unknown> };
+  let rawBody: Record<string, unknown>;
   try {
-    body = await request.json();
+    rawBody = await request.json();
   } catch {
     return NextResponse.json(
       { error: "Invalid JSON body" },
@@ -83,7 +85,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const { tool, params = {} } = body;
+  const tool = rawBody.tool as string;
+  const explicitParams = rawBody.params as Record<string, unknown> | undefined;
+  // Fallback: if params weren't nested under "params", collect any extra top-level keys.
+  const { tool: _t, params: _p, ...flatParams } = rawBody;
+  const params: Record<string, unknown> =
+    explicitParams && Object.keys(explicitParams).length > 0 ? explicitParams : flatParams;
 
   try {
     let result: unknown;
@@ -119,6 +126,10 @@ export async function POST(request: Request) {
 
       case "get_missing_venues":
         result = await getMissingVenues(params as any);
+        break;
+
+      case "get_tournament_venue_worklist":
+        result = await getTournamentVenueWorklist(getTournamentVenueWorklistInput.parse(params));
         break;
 
       case "get_association_dashboard":

@@ -29,6 +29,7 @@ paths:
               type: object
               required:
                 - tool
+              additionalProperties: false
               properties:
                 tool:
                   type: string
@@ -41,6 +42,7 @@ paths:
                     - get_organizer_clusters
                     - get_venue_clusters
                     - get_missing_venues
+                    - get_tournament_venue_worklist
                     - get_association_dashboard
                     - get_email_outreach_numbers
                     - get_top_organizer_domains
@@ -64,40 +66,43 @@ paths:
                     - upsert_partner_placement
                     - insert_partner_test_result
                   description: |
-                    Tool to invoke. Each tool and its params:
+                    Tool to invoke. ALL parameters must go inside the "params" object — never at the top level of the request body alongside "tool".
+
+                    Tool reference:
                     - get_dataset_health: no params. Returns health metrics.
                     - get_summary_dashboard: no params. Returns composite dashboard.
                     - get_trends: params: period (week|month|quarter), lookback_periods (int, max 52).
-                    - get_state_sport_coverage: params: sports (string[]), states (string[2-char arrays]), limit (int).
+                    - get_state_sport_coverage: params: sports (string[]), states (string[]), limit (int).
                     - get_missing_fields: params: missing_any_of (string[]), sport, state, limit, offset.
                     - get_organizer_clusters: params: min_tournaments (int, default 3), sport, state, limit.
                     - get_venue_clusters: params: min_tournaments (int, default 2), sport, state, limit.
                     - get_missing_venues: params: sport, state, limit (max 500).
+                    - get_tournament_venue_worklist: params: date_from (YYYY-MM-DD), date_to (YYYY-MM-DD), weeks_from_now_start (int, default 2), weeks_from_now_end (int, default 6), sports (string[]), states (string[]), venue_status (missing|incomplete|missing_or_incomplete|complete|any, default any), limit (int max 500, default 100), offset (int). Defaults to tournaments starting 2-6 weeks from today. Returns rows with venue status and priority score.
                     - get_association_dashboard: params: limit (int, max 200).
                     - get_email_outreach_numbers: no params. Returns draft/sent/replies/followups.
-                    - get_top_organizer_domains: params: limit (int).
-                    - get_tournaments_by_domain: params: domain (string, required), limit (int).
-                    - get_unverified_tournaments: params: limit (int).
-                    - get_tournaments_missing_source_urls: params: limit (int).
-                    - get_admin_reference: params: query (string). Returns admin codebase reference.
-                    - get_partner_pipeline: no params. Returns partner pipeline from public.partners.
-                    - get_partner_links: params: partner_id (string, optional). Returns partner links.
+                    - get_top_organizer_domains: params: min_tournaments (int), sport, state, limit (int).
+                    - get_tournaments_by_domain: params: domain (string, required), limit (int), offset (int).
+                    - get_unverified_tournaments: params: sport, state, limit (int), offset (int).
+                    - get_tournaments_missing_source_urls: params: sport, state, limit (int), offset (int).
+                    - get_admin_reference: params: query (string).
+                    - get_partner_pipeline: no params.
+                    - get_partner_links: params: partner_id (string, optional).
                     - get_partner_click_summary: params: start_date (YYYY-MM-DD), end_date (YYYY-MM-DD), partner_id (optional).
-                    - get_fanatics_routing: params: sport (string). Returns Fanatics affiliate routing for sport.
-                    - get_partner_knowledge: params: query (string) OR section (string). Returns knowledge base content.
-                    - mcp_healthcheck: no params. Returns server health status.
-                    - insert_research_note: params: tournament_id, note, source.
-                    - insert_tournament_candidate: params: name, sport, city, state, url.
-                    - upsert_organizer_watchlist: params: domain, label, ecosystem.
+                    - get_fanatics_routing: params: sport (string).
+                    - get_partner_knowledge: params: query (string) OR section (string).
+                    - mcp_healthcheck: no params.
+                    - insert_research_note: params: entity_type, entity_id, title, note, source_url.
+                    - insert_tournament_candidate: params: source_url (required), name, sport, state, notes.
+                    - upsert_organizer_watchlist: params: organizer_domain (required), reason (required), tags (string[]), status (active|muted).
                     - upsert_partner: params: key (required), name (required), category, status, priority, partner_type, website_url, application_url, contact_email, disclosure_text, notes, is_active.
-                    - upsert_partner_link: params: partner_id (required), label (required), url (required), id (for update), destination_type, page_type, placement, sport, campaign, shared_id, sub_id_1, sub_id_2, sub_id_3, is_active, sort_order.
+                    - upsert_partner_link: params: partner_id (required), label (required), url (required), id, destination_type, page_type, placement, sport, campaign, shared_id, sub_id_1, sub_id_2, sub_id_3, is_active, sort_order.
                     - insert_partner_note: params: partner_key (required), note (required), note_type (general|outreach|negotiation|implementation|qa), created_by.
                     - update_partner_status: params: key (required), status (required).
                     - upsert_partner_placement: params: partner_key (required), placement_type (required), label, is_active, config.
                     - insert_partner_test_result: params: partner_key (required), experiment_name (required), ctr, clicks, conversions, notes, tested_at (YYYY-MM-DD).
                 params:
                   type: object
-                  description: Tool-specific parameters as described in the tool enum
+                  description: "Tool-specific parameters. ALL parameters must be nested here under 'params', not at the top level of the request body."
       responses:
         "200":
           description: Successful tool result
