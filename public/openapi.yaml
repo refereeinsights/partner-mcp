@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: TournamentInsights Intelligence API
   description: Data intelligence and partner monetization tools for TournamentInsights / RefereeInsights
-  version: 1.1.0
+  version: 1.1.1
 
 servers:
   - url: https://partnermcp-git-main-rod-davis-projects.vercel.app
@@ -13,6 +13,7 @@ security:
   - bearerAuth: []
 
 components:
+  schemas: {}
   securitySchemes:
     bearerAuth:
       type: http
@@ -36,6 +37,7 @@ paths:
               type: object
               required:
                 - tool
+              additionalProperties: true
               properties:
                 tool:
                   type: string
@@ -281,6 +283,7 @@ paths:
                 tested_at:
                   type: string
                   description: Test date, YYYY-MM-DD.
+
       responses:
         "200":
           description: Successful tool result.
@@ -288,12 +291,42 @@ paths:
             application/json:
               schema:
                 type: object
+                additionalProperties: true
                 properties:
                   result:
+                    type: object
                     description: Tool output. Structure varies by tool.
+                    additionalProperties: true
+
         "400":
           description: Unknown tool name or invalid request.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                properties:
+                  error:
+                    type: string
+
         "401":
           description: Missing or invalid bearer token.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                properties:
+                  error:
+                    type: string
+
         "500":
           description: Tool execution error.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                properties:
+                  error:
+                    type: string
