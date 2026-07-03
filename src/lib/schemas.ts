@@ -68,9 +68,12 @@ export const getMissingFieldsInput = z.object({
 export const tournamentRowSchema = z.object({
   id: z.string(),
   name: z.string(),
+  slug: z.string().optional().nullable(),
   sport: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
   state: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  zip: z.string().optional().nullable(),
   start_date: z.string().optional().nullable(),
   end_date: z.string().optional().nullable(),
   official_website_url: z.string().optional().nullable(),

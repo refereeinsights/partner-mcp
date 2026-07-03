@@ -211,9 +211,12 @@ export async function getMissingFields(filters: MissingFieldsFilters) {
 
   const requiredColumns = ["id", "name"];
   const optionalColumns = [
+    "slug",
     "sport",
     "city",
     "state",
+    "address",
+    "zip",
     "start_date",
     "end_date",
     "official_website_url",
@@ -1015,9 +1018,12 @@ export async function getTournamentsByDomain(filters: {
   const cols = [
     "id",
     "name",
+    "slug",
     "sport",
     "city",
     "state",
+    "address",
+    "zip",
     "start_date",
     "end_date",
     "official_website_url",
@@ -1073,9 +1079,12 @@ export async function getUnverifiedTournaments(filters: {
   const baseCols = [
     "id",
     "name",
+    "slug",
     "sport",
     "city",
     "state",
+    "address",
+    "zip",
     "start_date",
     "end_date",
     "official_website_url",
@@ -1132,9 +1141,12 @@ export async function getTournamentsMissingSourceUrls(filters: {
   const baseCols = [
     "id",
     "name",
+    "slug",
     "sport",
     "city",
     "state",
+    "address",
+    "zip",
     "start_date",
     "end_date",
     "official_website_url",
