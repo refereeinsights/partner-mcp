@@ -412,6 +412,22 @@ export const insertResearchNoteInput = z.object({
 
 export const insertResearchNoteOutput = z.object({ ok: z.literal(true) });
 
+// Tool inventory
+export const listToolsInput = z.object({});
+
+export const toolEntrySchema = z.object({
+  name: z.string(),
+  category: z.string(),
+  access: z.enum(["read", "write"]),
+  description: z.string()
+});
+
+export const listToolsOutput = z.object({
+  total: z.number(),
+  writes_enabled: z.boolean(),
+  tools: z.array(toolEntrySchema)
+});
+
 // Health tool
 export const mcpHealthcheckInput = z.object({});
 export const mcpHealthcheckOutput = z.object({

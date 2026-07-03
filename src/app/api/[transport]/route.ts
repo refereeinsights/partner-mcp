@@ -32,6 +32,7 @@ import { registerInsertPartnerTestResult } from "../../../tools/insertPartnerTes
 import { registerGetTournamentVenueWorklist } from "../../../tools/getTournamentVenueWorklist";
 import { registerGetRollForwardLog } from "../../../tools/getRollForwardLog";
 import { registerUpsertRollForwardLog } from "../../../tools/upsertRollForwardLog";
+import { registerListTools } from "../../../tools/listTools";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -104,6 +105,7 @@ const mcpHandler = createMcpHandler(
     registerGetTournamentVenueWorklist(server);
     registerGetRollForwardLog(server);
     registerUpsertRollForwardLog(server);
+    registerListTools(server);
   },
   {},
   { basePath: "/api", maxDuration: 60 }
