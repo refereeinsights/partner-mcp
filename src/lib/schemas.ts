@@ -479,3 +479,65 @@ export const getTournamentVenueWorklistOutput = z.object({
 export type TournamentVenueWorklistFilters = z.infer<typeof getTournamentVenueWorklistInput>;
 export type TournamentVenueWorklistRow = z.infer<typeof tournamentVenueWorklistRowSchema>;
 export type TournamentVenueWorklistResult = z.infer<typeof getTournamentVenueWorklistOutput>;
+
+// Tournament Roll Forward Log
+export const rollForwardStatusEnum = z.enum([
+  "pending",
+  "no_dates_announced",
+  "discontinued",
+  "done",
+  "ambiguous"
+]);
+
+export const getRollForwardLogInput = z.object({
+  status: rollForwardStatusEnum.optional(),
+  target_year: z.number().int().min(2020).max(2040).optional(),
+  batch_label: z.string().optional(),
+  sport: sportSchema.optional(),
+  state: stateSchema.optional(),
+  limit: z.number().int().positive().max(500).optional().default(100),
+  offset: z.number().int().nonnegative().optional().default(0)
+});
+
+export const rollForwardLogRowSchema = z.object({
+  id: z.string(),
+  parent_tournament_id: z.string(),
+  parent_name: z.string().nullable(),
+  parent_slug: z.string().nullable(),
+  parent_sport: z.string().nullable(),
+  parent_state: z.string().nullable(),
+  parent_city: z.string().nullable(),
+  parent_address: z.string().nullable(),
+  parent_zip: z.string().nullable(),
+  parent_start_date: z.string().nullable(),
+  parent_end_date: z.string().nullable(),
+  target_year: z.number(),
+  status: rollForwardStatusEnum,
+  batch_label: z.string().nullable(),
+  sibling_id: z.string().nullable(),
+  sibling_slug: z.string().nullable(),
+  notes: z.string().nullable(),
+  researched_at: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string()
+});
+
+export const getRollForwardLogOutput = z.array(rollForwardLogRowSchema);
+export const getRollForwardLogToolOutput = z.object({ data: getRollForwardLogOutput });
+
+export const upsertRollForwardLogInput = z.object({
+  parent_tournament_id: z.string().uuid("parent_tournament_id must be a valid UUID"),
+  target_year: z.number().int().min(2020).max(2040),
+  status: rollForwardStatusEnum,
+  batch_label: z.string().max(200).optional(),
+  notes: z.string().max(10000).optional(),
+  sibling_id: z.string().uuid("sibling_id must be a valid UUID").optional(),
+  researched_at: z.string().datetime().optional()
+});
+
+export const upsertRollForwardLogOutput = z.object({
+  ok: z.literal(true),
+  id: z.string()
+});
+
+export type RollForwardLogRow = z.infer<typeof rollForwardLogRowSchema>;

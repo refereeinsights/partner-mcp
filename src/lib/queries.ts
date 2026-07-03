@@ -7,6 +7,7 @@ import {
   MissingVenuesResult,
   OrganizerCluster,
   ResearchBatchRow,
+  RollForwardLogRow,
   StateSportCoverageRow,
   SummaryDashboard,
   TournamentVenueWorklistFilters,
@@ -1573,4 +1574,118 @@ export async function getTournamentVenueWorklist(
     tournaments: page,
     generated_at
   };
+}
+
+export async function getRollForwardLog(filters: {
+  status?: "pending" | "no_dates_announced" | "discontinued" | "done" | "ambiguous";
+  target_year?: number;
+  batch_label?: string;
+  sport?: string;
+  state?: string;
+  limit: number;
+  offset: number;
+}): Promise<RollForwardLogRow[]> {
+  if (mockMode()) return [];
+
+  const supabase = getSupabaseClient();
+
+  let query = supabase
+    .from("tournament_roll_forward_log")
+    .select(
+      `id,
+       parent_tournament_id,
+       target_year,
+       status,
+       batch_label,
+       sibling_id,
+       notes,
+       researched_at,
+       created_at,
+       updated_at,
+       parent_tournament:tournaments!parent_tournament_id(name,slug,sport,state,city,address,zip,start_date,end_date),
+       sibling_tournament:tournaments!sibling_id(slug)`
+    )
+    .order("target_year", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (filters.status) query = query.eq("status", filters.status);
+  if (filters.target_year) query = query.eq("target_year", filters.target_year);
+  if (filters.batch_label) query = query.eq("batch_label", filters.batch_label);
+  if (filters.sport || filters.state) {
+    // Filter via the parent tournament join by doing a subquery approach:
+    // We fetch parent ids first when sport/state filtering is needed.
+    let parentQuery = supabase.from("tournaments").select("id");
+    if (filters.sport) parentQuery = parentQuery.ilike("sport", `%${filters.sport}%`);
+    if (filters.state) parentQuery = parentQuery.eq("state", filters.state.toUpperCase());
+    const { data: parentRows, error: parentError } = await parentQuery;
+    if (parentError) throw parentError;
+    const parentIds = (parentRows ?? []).map((r: any) => r.id);
+    if (parentIds.length === 0) return [];
+    query = query.in("parent_tournament_id", parentIds);
+  }
+
+  query = query.range(filters.offset, filters.offset + filters.limit - 1);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => {
+    const p = row.parent_tournament ?? {};
+    const s = row.sibling_tournament ?? {};
+    return {
+      id: row.id,
+      parent_tournament_id: row.parent_tournament_id,
+      parent_name: p.name ?? null,
+      parent_slug: p.slug ?? null,
+      parent_sport: p.sport ?? null,
+      parent_state: p.state ?? null,
+      parent_city: p.city ?? null,
+      parent_address: p.address ?? null,
+      parent_zip: p.zip ?? null,
+      parent_start_date: p.start_date ?? null,
+      parent_end_date: p.end_date ?? null,
+      target_year: row.target_year,
+      status: row.status,
+      batch_label: row.batch_label ?? null,
+      sibling_id: row.sibling_id ?? null,
+      sibling_slug: s.slug ?? null,
+      notes: row.notes ?? null,
+      researched_at: row.researched_at ?? null,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
+  });
+}
+
+export async function upsertRollForwardLog(input: {
+  parent_tournament_id: string;
+  target_year: number;
+  status: "pending" | "no_dates_announced" | "discontinued" | "done" | "ambiguous";
+  batch_label?: string;
+  notes?: string;
+  sibling_id?: string;
+  researched_at?: string;
+}): Promise<{ ok: true; id: string }> {
+  assertWritesEnabled();
+  const supabase = getSupabaseClient();
+
+  const payload: Record<string, unknown> = {
+    parent_tournament_id: input.parent_tournament_id,
+    target_year: input.target_year,
+    status: input.status,
+    batch_label: input.batch_label ?? null,
+    notes: input.notes ?? null,
+    sibling_id: input.sibling_id ?? null,
+    researched_at: input.researched_at ?? null,
+    updated_at: new Date().toISOString()
+  };
+
+  const { data, error } = await supabase
+    .from("tournament_roll_forward_log")
+    .upsert(payload, { onConflict: "parent_tournament_id,target_year" })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+  return { ok: true, id: (data as any).id };
 }

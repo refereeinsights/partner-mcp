@@ -30,6 +30,8 @@ import { registerUpdatePartnerStatus } from "../../../tools/updatePartnerStatus"
 import { registerUpsertPartnerPlacement } from "../../../tools/upsertPartnerPlacement";
 import { registerInsertPartnerTestResult } from "../../../tools/insertPartnerTestResult";
 import { registerGetTournamentVenueWorklist } from "../../../tools/getTournamentVenueWorklist";
+import { registerGetRollForwardLog } from "../../../tools/getRollForwardLog";
+import { registerUpsertRollForwardLog } from "../../../tools/upsertRollForwardLog";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -100,6 +102,8 @@ const mcpHandler = createMcpHandler(
     registerUpsertPartnerPlacement(server);
     registerInsertPartnerTestResult(server);
     registerGetTournamentVenueWorklist(server);
+    registerGetRollForwardLog(server);
+    registerUpsertRollForwardLog(server);
   },
   {},
   { basePath: "/api", maxDuration: 60 }
