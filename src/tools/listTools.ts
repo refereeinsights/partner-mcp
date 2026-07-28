@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { listToolsInput, listToolsOutput } from "../lib/schemas";
 
-const TOOLS = [
+export const TOOLS = [
   // Dataset / analytics
   { name: "get_summary_dashboard", category: "dataset", access: "read", description: "Overall dataset health plus top sports, states, organizers, and venues." },
   { name: "get_dataset_health", category: "dataset", access: "read", description: "Tournament count and percentage missing key fields (website, email, dates)." },

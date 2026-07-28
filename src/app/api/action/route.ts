@@ -54,6 +54,9 @@ import {
   insertTournamentSearchFindingsInput,
   finalizeTournamentSearchRunInput
 } from "../../../lib/searchHistorySchemas";
+import { getRollForwardLog, upsertRollForwardLog } from "../../../lib/queries";
+import { getRollForwardLogInput, upsertRollForwardLogInput } from "../../../lib/schemas";
+import { TOOLS } from "../../../tools/listTools";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -282,7 +285,36 @@ export async function POST(request: Request) {
         break;
 
       case "mcp_healthcheck":
-        result = { result: { status: "ok", ts: new Date().toISOString() } };
+        result = {
+          status: "ok",
+          writes_enabled: process.env.ENABLE_MCP_WRITES === "true",
+          search_history_writes_enabled: process.env.ENABLE_SEARCH_HISTORY_WRITES === "true",
+          mock_mode: process.env.MOCK_MODE === "true",
+          supabase_url_present: !!process.env.SUPABASE_URL,
+          anon_key_present: !!process.env.SUPABASE_ANON_KEY,
+          service_role_key_present: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+          ts: new Date().toISOString()
+        };
+        break;
+
+      case "list_tools": {
+        const writesEnabled = process.env.ENABLE_MCP_WRITES === "true";
+        const searchHistoryWritesEnabled = process.env.ENABLE_SEARCH_HISTORY_WRITES === "true";
+        result = {
+          total: TOOLS.length,
+          writes_enabled: writesEnabled,
+          search_history_writes_enabled: searchHistoryWritesEnabled,
+          tools: TOOLS.map((t) => ({ ...t }))
+        };
+        break;
+      }
+
+      case "get_roll_forward_log":
+        result = await getRollForwardLog(getRollForwardLogInput.parse(params));
+        break;
+
+      case "upsert_roll_forward_log":
+        result = await upsertRollForwardLog(upsertRollForwardLogInput.parse(params));
         break;
 
       default:

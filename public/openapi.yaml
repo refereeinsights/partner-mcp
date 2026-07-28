@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: TournamentInsights Intelligence API
   description: Data intelligence and partner monetization tools for TournamentInsights / RefereeInsights
-  version: 1.2.0
+  version: 1.2.1
 
 servers:
   - url: https://partnermcp-git-main-rod-davis-projects.vercel.app
@@ -74,6 +74,9 @@ paths:
                     - update_partner_status
                     - upsert_partner_placement
                     - insert_partner_test_result
+                    - get_roll_forward_log
+                    - upsert_roll_forward_log
+                    - list_tools
                     - get_search_runs
                     - get_search_run_findings
                     - get_search_coverage
@@ -459,6 +462,26 @@ paths:
                 next_search_after:
                   type: string
                   description: Date (YYYY-MM-DD) after which this state/sport should be searched again.
+
+                target_year:
+                  type: integer
+                  description: Target year (2020–2040) for roll-forward log filtering or upsert.
+
+                batch_label:
+                  type: string
+                  description: Batch label for grouping roll-forward log entries.
+
+                parent_tournament_id:
+                  type: string
+                  description: UUID of the parent tournament for a roll-forward log entry.
+
+                sibling_id:
+                  type: string
+                  description: UUID of the sibling tournament found for this target year.
+
+                researched_at:
+                  type: string
+                  description: ISO 8601 timestamp when the roll-forward entry was researched.
 
                 source_batch_id:
                   type: string
