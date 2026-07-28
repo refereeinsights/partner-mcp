@@ -58,6 +58,30 @@ Deployed: `https://<vercel-project-domain>/api/mcp`
 | `update_partner_status` | Change a partner's pipeline status (write-gated). |
 | `insert_partner_test_result` | Record a partner link test result (write-gated). |
 
+### Tournament Search History (discovery tracking)
+
+Operational research data — tournament-discovery search runs, per-`(state, sport)` scopes, and individual findings — kept fully separate from production `tournaments` rows. Nothing here creates, updates, or auto-promotes production tournament records. Ported from the main TournamentInsights MCP repo (`src/db/searchHistoryQueries.ts` there); full design docs (candidate statuses, CSV 2.5 qualification, idempotency, window filtering, coverage aggregation) live in that repo's README.
+
+| Tool | Description |
+|---|---|
+| `get_search_runs` | List search runs; filter by state/sport/region/status/tournament-window (`window_from`/`window_to`)/search timestamp. |
+| `get_search_run_findings` | List findings (defaults to current/non-superseded only); filter by run/scope/state/sport/candidate_status/organizer_domain/window. |
+| `get_search_coverage` | State-and-sport coverage rolled up from scopes: run counts, qualified yield rate, unresolved-verification counts, known organizer domains. |
+| `get_next_search_priorities` | Scored next-search recommendations. Only surfaces combinations already present in `tournament_search_run_scopes` — cannot identify never-searched combinations. |
+| `insert_tournament_search_run` | Record a search run. Idempotent via `source_batch_id` (write-gated, separate flag — see below). |
+| `insert_tournament_search_scope` | Record a `(state, sport)` scope for a run (write-gated). |
+| `insert_tournament_search_finding` | Record a finding; supports supersession via `supersedes_finding_id` (write-gated). |
+| `insert_tournament_search_findings` | Batch-insert findings (max 100), all-or-nothing validation (write-gated). |
+| `finalize_tournament_search_run` | Reconcile scope/run metrics from current findings, resolve unscoped findings, set `completed_at`/status. Idempotent (write-gated). |
+
+**Write-gating decision:** these write tools require `ENABLE_SEARCH_HISTORY_WRITES=true`, a flag separate from `ENABLE_MCP_WRITES`. Search-history writes are the routine, potentially high-frequency write path for this feature, unlike the existing admin write tools above (rare, manual actions). Both flags require `SUPABASE_SERVICE_ROLE_KEY`.
+
+**Schema:** apply `tournament_search_history_schema_v1.sql` from the main TournamentInsights MCP repo (`src/db/sql/`) against the shared Supabase project — it is not duplicated into this repo to avoid two divergent copies of the same schema. RLS on all three tables grants no access to `anon`/`authenticated`; only the service-role key (used throughout this server) can reach this data.
+
+**Known limitation carried over from the main repo:** no DB transaction/RPC wrapper exists yet, so finding supersession and batch insert use sequential statements (with a best-effort compensating rollback on batch failure) rather than a single atomic transaction.
+
+**`MOCK_MODE` caveat specific to this feature:** the in-memory mock store mutates module-level arrays, unlike the read-only `MOCK_TOURNAMENTS` fixture already in this repo. That mutation is only reliable within a single warm process — verified working via a `next dev` server for individual request flows, but Next.js dev/Vercel serverless make no guarantee that state persists identically across separate requests (dev-mode module reloads, cold starts, multiple instances). Don't rely on `MOCK_MODE` to test cross-request idempotency (e.g. repeated `source_batch_id` calls) here; that guarantee only actually holds against real Supabase (its `on conflict` unique index), which needs a live/staging project to verify.
+
 ### System
 
 | Tool | Description |
@@ -80,6 +104,7 @@ Deployed: `https://<vercel-project-domain>/api/mcp`
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Service role key — server-side only |
 | `MCP_API_KEY` | Yes (prod) | Bearer token for MCP endpoint auth |
 | `ENABLE_MCP_WRITES` | No | Set to `true` to enable write tools |
+| `ENABLE_SEARCH_HISTORY_WRITES` | No | Set to `true` to enable the tournament search-history write tools (separate from `ENABLE_MCP_WRITES`) |
 | `MOCK_MODE` | No | Set to `true` to return mock data without a real Supabase connection |
 | `SITE_URL` | No | Deployed URL of this service (no trailing slash) |
 
@@ -168,6 +193,9 @@ This server requires SELECT access on:
 - `public.partners`
 - `public.partner_links`
 - `public.ti_map_events`
+- `public.tournament_search_runs`
+- `public.tournament_search_run_scopes`
+- `public.tournament_search_run_findings`
 
 Write tools (when `ENABLE_MCP_WRITES=true`) also require INSERT/UPDATE on:
 - `public.organizer_watchlists`
@@ -178,6 +206,11 @@ Write tools (when `ENABLE_MCP_WRITES=true`) also require INSERT/UPDATE on:
 - `public.partner_placements`
 - `public.partner_notes`
 - `public.partner_test_results`
+
+Search-history write tools (when `ENABLE_SEARCH_HISTORY_WRITES=true`) also require INSERT/UPDATE on:
+- `public.tournament_search_runs`
+- `public.tournament_search_run_scopes`
+- `public.tournament_search_run_findings`
 
 For production, consider using a scoped Postgres role rather than the full service role key.
 

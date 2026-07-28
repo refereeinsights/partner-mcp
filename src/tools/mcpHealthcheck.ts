@@ -14,6 +14,7 @@ export function registerMcpHealthcheck(server: McpServer) {
       const result = {
         status: "ok" as const,
         writes_enabled: process.env.ENABLE_MCP_WRITES === "true",
+        search_history_writes_enabled: process.env.ENABLE_SEARCH_HISTORY_WRITES === "true",
         mock_mode: process.env.MOCK_MODE === "true",
         supabase_url_present: !!process.env.SUPABASE_URL,
         anon_key_present: !!process.env.SUPABASE_ANON_KEY,

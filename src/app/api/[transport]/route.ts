@@ -33,6 +33,15 @@ import { registerGetTournamentVenueWorklist } from "../../../tools/getTournament
 import { registerGetRollForwardLog } from "../../../tools/getRollForwardLog";
 import { registerUpsertRollForwardLog } from "../../../tools/upsertRollForwardLog";
 import { registerListTools } from "../../../tools/listTools";
+import { registerGetSearchRuns } from "../../../tools/getSearchRuns";
+import { registerGetSearchRunFindings } from "../../../tools/getSearchRunFindings";
+import { registerGetSearchCoverage } from "../../../tools/getSearchCoverage";
+import { registerGetNextSearchPriorities } from "../../../tools/getNextSearchPriorities";
+import { registerInsertTournamentSearchRun } from "../../../tools/insertTournamentSearchRun";
+import { registerInsertTournamentSearchScope } from "../../../tools/insertTournamentSearchScope";
+import { registerInsertTournamentSearchFinding } from "../../../tools/insertTournamentSearchFinding";
+import { registerInsertTournamentSearchFindings } from "../../../tools/insertTournamentSearchFindings";
+import { registerFinalizeTournamentSearchRun } from "../../../tools/finalizeTournamentSearchRun";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -105,6 +114,25 @@ const mcpHandler = createMcpHandler(
     registerGetTournamentVenueWorklist(server);
     registerGetRollForwardLog(server);
     registerUpsertRollForwardLog(server);
+
+    // Search-history reads: always registered (internal/operational data,
+    // queried with the same service-role client as everything else here).
+    registerGetSearchRuns(server);
+    registerGetSearchRunFindings(server);
+    registerGetSearchCoverage(server);
+    registerGetNextSearchPriorities(server);
+
+    // Search-history writes: gated behind their own flag, separate from
+    // ENABLE_MCP_WRITES, since they're the routine/high-frequency write path
+    // for this feature rather than a rare admin action.
+    if (process.env.ENABLE_SEARCH_HISTORY_WRITES === "true") {
+      registerInsertTournamentSearchRun(server);
+      registerInsertTournamentSearchScope(server);
+      registerInsertTournamentSearchFinding(server);
+      registerInsertTournamentSearchFindings(server);
+      registerFinalizeTournamentSearchRun(server);
+    }
+
     registerListTools(server);
   },
   {},

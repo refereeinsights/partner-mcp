@@ -32,6 +32,28 @@ import { insertPartnerNote } from "../../../tools/insertPartnerNote";
 import { updatePartnerStatus } from "../../../tools/updatePartnerStatus";
 import { upsertPartnerPlacement } from "../../../tools/upsertPartnerPlacement";
 import { insertPartnerTestResult } from "../../../tools/insertPartnerTestResult";
+import {
+  getSearchRuns,
+  getSearchRunFindings,
+  getSearchCoverage,
+  getNextSearchPriorities,
+  insertTournamentSearchRun,
+  insertTournamentSearchScope,
+  insertTournamentSearchFinding,
+  insertTournamentSearchFindings,
+  finalizeTournamentSearchRun
+} from "../../../lib/searchHistoryQueries";
+import {
+  getSearchRunsInput,
+  getSearchRunFindingsInput,
+  getSearchCoverageInput,
+  getNextSearchPrioritiesInput,
+  insertTournamentSearchRunInput,
+  insertTournamentSearchScopeInput,
+  insertTournamentSearchFindingInput,
+  insertTournamentSearchFindingsInput,
+  finalizeTournamentSearchRunInput
+} from "../../../lib/searchHistorySchemas";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -221,6 +243,42 @@ export async function POST(request: Request) {
 
       case "insert_partner_test_result":
         result = await insertPartnerTestResult(params as any);
+        break;
+
+      case "get_search_runs":
+        result = await getSearchRuns(getSearchRunsInput.parse(params));
+        break;
+
+      case "get_search_run_findings":
+        result = await getSearchRunFindings(getSearchRunFindingsInput.parse(params));
+        break;
+
+      case "get_search_coverage":
+        result = await getSearchCoverage(getSearchCoverageInput.parse(params));
+        break;
+
+      case "get_next_search_priorities":
+        result = await getNextSearchPriorities(getNextSearchPrioritiesInput.parse(params));
+        break;
+
+      case "insert_tournament_search_run":
+        result = await insertTournamentSearchRun(insertTournamentSearchRunInput.parse(params));
+        break;
+
+      case "insert_tournament_search_scope":
+        result = await insertTournamentSearchScope(insertTournamentSearchScopeInput.parse(params));
+        break;
+
+      case "insert_tournament_search_finding":
+        result = await insertTournamentSearchFinding(insertTournamentSearchFindingInput.parse(params));
+        break;
+
+      case "insert_tournament_search_findings":
+        result = await insertTournamentSearchFindings(insertTournamentSearchFindingsInput.parse(params));
+        break;
+
+      case "finalize_tournament_search_run":
+        result = await finalizeTournamentSearchRun(finalizeTournamentSearchRunInput.parse(params));
         break;
 
       case "mcp_healthcheck":

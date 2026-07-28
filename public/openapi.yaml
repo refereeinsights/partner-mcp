@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: TournamentInsights Intelligence API
   description: Data intelligence and partner monetization tools for TournamentInsights / RefereeInsights
-  version: 1.1.1
+  version: 1.2.0
 
 servers:
   - url: https://partnermcp-git-main-rod-davis-projects.vercel.app
@@ -74,6 +74,15 @@ paths:
                     - update_partner_status
                     - upsert_partner_placement
                     - insert_partner_test_result
+                    - get_search_runs
+                    - get_search_run_findings
+                    - get_search_coverage
+                    - get_next_search_priorities
+                    - insert_tournament_search_run
+                    - insert_tournament_search_scope
+                    - insert_tournament_search_finding
+                    - insert_tournament_search_findings
+                    - finalize_tournament_search_run
 
                 sport:
                   type: string
@@ -283,6 +292,204 @@ paths:
                 tested_at:
                   type: string
                   description: Test date, YYYY-MM-DD.
+
+                region_name:
+                  type: string
+                  description: Free-text region label for a search run, for example "Southern California".
+
+                search_run_id:
+                  type: string
+                  description: ID of a tournament_search_runs row.
+
+                search_scope_id:
+                  type: string
+                  description: ID of a tournament_search_run_scopes row.
+
+                supersedes_finding_id:
+                  type: string
+                  description: ID of the prior finding this one replaces (marks the prior finding non-current).
+
+                candidate_status:
+                  type: string
+                  enum:
+                    - Qualified
+                    - Needs Venue Verification
+                    - Needs Address Verification
+                    - Needs Date Verification
+                    - Out of Scope - State
+                    - Out of Scope - Date
+                    - Out of Scope - Sport
+                    - Not a Tournament
+                    - Duplicate
+                    - Other Exclusion
+                  description: Tournament-discovery finding status.
+
+                tournament_name:
+                  type: string
+                  description: Candidate tournament name for a search-history finding.
+
+                venue_name:
+                  type: string
+                  description: Venue name for a search-history finding.
+
+                venue_address:
+                  type: string
+                  description: Venue street address for a search-history finding.
+
+                venue_city:
+                  type: string
+                  description: Venue city for a search-history finding.
+
+                venue_state:
+                  type: string
+                  description: Venue 2-letter state code for a search-history finding.
+
+                venue_source_url:
+                  type: string
+                  description: Source URL verifying the venue.
+
+                existing_tournament_id:
+                  type: string
+                  description: Production tournaments.id this finding may correspond to (reference only; never auto-linked).
+
+                organizer_name:
+                  type: string
+                  description: Organizer display name for a search-history finding.
+
+                search_prompt_version:
+                  type: string
+                  description: Version label of the research prompt used for a search run.
+
+                search_prompt_text:
+                  type: string
+                  description: Full research prompt text for a search run (hashed and truncated in storage if over ~64KB).
+
+                search_prompt_hash:
+                  type: string
+                  description: Precomputed hash of the research prompt, if known.
+
+                search_method:
+                  type: string
+                  description: Free-text description of the search methodology, for example "venue-first deep geo discovery".
+
+                research_agent:
+                  type: string
+                  description: Name/identifier of the agent that performed the search.
+
+                research_model:
+                  type: string
+                  description: Model identifier used for the search.
+
+                searched_at:
+                  type: string
+                  description: Timestamp the search was performed, ISO 8601.
+
+                completed_at:
+                  type: string
+                  description: Timestamp the search run was completed/finalized, ISO 8601.
+
+                searched_by:
+                  type: string
+                  description: Identifier of who/what ran the search.
+
+                candidates_found:
+                  type: integer
+                  description: Total candidates found (run- or scope-level metric).
+
+                qualified_rows:
+                  type: integer
+                  description: Count of Qualified findings (run- or scope-level metric).
+
+                needs_venue_verification:
+                  type: integer
+                  description: Count of findings needing venue verification.
+
+                needs_address_verification:
+                  type: integer
+                  description: Count of findings needing address verification.
+
+                needs_date_verification:
+                  type: integer
+                  description: Count of findings needing date verification.
+
+                duplicates_found:
+                  type: integer
+                  description: Count of findings marked Duplicate.
+
+                out_of_scope_found:
+                  type: integer
+                  description: Count of out-of-scope/not-a-tournament/other-exclusion findings.
+
+                organizer_domains:
+                  type: array
+                  items:
+                    type: string
+                  description: Organizer domains discovered during a search run.
+
+                organizer_names:
+                  type: array
+                  items:
+                    type: string
+                  description: Organizer display names discovered during a search run.
+
+                venue_names:
+                  type: array
+                  items:
+                    type: string
+                  description: Venue names discovered during a search run.
+
+                high_value_sources:
+                  type: array
+                  items:
+                    type: string
+                  description: High-value monitoring source URLs discovered during a search run.
+
+                search_summary:
+                  type: string
+                  description: Freeform summary of a search run.
+
+                unresolved_work:
+                  type: string
+                  description: Freeform description of unresolved follow-up work for a search run.
+
+                next_action:
+                  type: string
+                  description: Freeform description of the recommended next action for a search run.
+
+                next_search_after:
+                  type: string
+                  description: Date (YYYY-MM-DD) after which this state/sport should be searched again.
+
+                source_batch_id:
+                  type: string
+                  description: Caller-supplied idempotency key for insert_tournament_search_run.
+
+                window_from:
+                  type: string
+                  description: Lower bound of a tournament date window (YYYY-MM-DD) for search-history read tools.
+
+                window_to:
+                  type: string
+                  description: Upper bound of a tournament date window (YYYY-MM-DD) for search-history read tools.
+
+                searched_from:
+                  type: string
+                  description: Lower bound on searched_at (ISO 8601) for search-history read tools.
+
+                searched_to:
+                  type: string
+                  description: Upper bound on searched_at (ISO 8601) for search-history read tools.
+
+                current_only:
+                  type: boolean
+                  description: For get_search_run_findings — restrict to current (non-superseded) findings. Defaults to true.
+
+                findings:
+                  type: array
+                  description: For insert_tournament_search_findings — array of finding objects (same shape as insert_tournament_search_finding params, omitting search_run_id).
+                  items:
+                    type: object
+                    additionalProperties: true
 
       responses:
         "200":

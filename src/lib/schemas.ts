@@ -425,6 +425,7 @@ export const toolEntrySchema = z.object({
 export const listToolsOutput = z.object({
   total: z.number(),
   writes_enabled: z.boolean(),
+  search_history_writes_enabled: z.boolean(),
   tools: z.array(toolEntrySchema)
 });
 
@@ -433,6 +434,7 @@ export const mcpHealthcheckInput = z.object({});
 export const mcpHealthcheckOutput = z.object({
   status: z.literal("ok"),
   writes_enabled: z.boolean(),
+  search_history_writes_enabled: z.boolean(),
   mock_mode: z.boolean(),
   supabase_url_present: z.boolean(),
   anon_key_present: z.boolean(),
