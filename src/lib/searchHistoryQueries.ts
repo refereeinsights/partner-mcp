@@ -11,6 +11,8 @@ import {
   validateHttpUrl,
   validateIsoDate,
   assertDateOrder,
+  normalizeMonitoringUrlsArray,
+  dedupeCaseInsensitiveArray,
   US_STATE_CODE_SET
 } from "./searchHistoryValidation";
 import {
@@ -36,7 +38,10 @@ import type {
   GetNextSearchPrioritiesInput,
   TournamentSearchRun,
   TournamentSearchScope,
-  TournamentSearchFinding
+  TournamentSearchFinding,
+  InsertSearchOrganizerIntelligenceInput,
+  GetSearchOrganizerIntelligenceInput,
+  SearchOrganizerIntelligenceRow
 } from "./searchHistorySchemas";
 
 // ---------------------------------------------------------------------------
@@ -83,11 +88,13 @@ function nowIso(): string {
 const mockRuns: any[] = [];
 const mockScopes: any[] = [];
 const mockFindings: any[] = [];
+const mockOrgIntel: any[] = [];
 
 export function __resetSearchHistoryMockStore() {
   mockRuns.length = 0;
   mockScopes.length = 0;
   mockFindings.length = 0;
+  mockOrgIntel.length = 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -1087,6 +1094,181 @@ export async function getNextSearchPriorities(filters: GetNextSearchPrioritiesIn
     universe_source: "scope_table_fallback",
     fallback_limitation:
       "Only state-and-sport combinations that already have at least one tournament_search_run_scopes row can appear here. Combinations never searched are invisible to this tool."
+  };
+}
+
+// ---------------------------------------------------------------------------
+// insert_search_organizer_intelligence
+// ---------------------------------------------------------------------------
+
+function orgIntelRowsMatch(a: any, b: any): boolean {
+  const arrEq = (x: string[], y: string[]) =>
+    JSON.stringify([...x].sort()) === JSON.stringify([...y].sort());
+  return (
+    a.organizer_name === b.organizer_name &&
+    a.confidence_level === b.confidence_level &&
+    a.evidence_summary === b.evidence_summary &&
+    arrEq(a.states, b.states) &&
+    arrEq(a.sports, b.sports) &&
+    arrEq(a.tournament_families, b.tournament_families) &&
+    arrEq(a.venue_clusters, b.venue_clusters) &&
+    arrEq(a.monitoring_urls, b.monitoring_urls) &&
+    a.recommended_cadence === b.recommended_cadence &&
+    a.next_monitor_after === b.next_monitor_after &&
+    a.registration_platform === b.registration_platform &&
+    a.scheduling_platform === b.scheduling_platform &&
+    a.notes === b.notes
+  );
+}
+
+export async function insertSearchOrganizerIntelligence(
+  input: InsertSearchOrganizerIntelligenceInput
+): Promise<{ row: SearchOrganizerIntelligenceRow; inserted: boolean }> {
+  assertSearchHistoryWritesEnabled();
+  await assertRunExists(input.search_run_id);
+
+  const domain = normalizeOrganizerDomain(input.organizer_domain);
+
+  if (!input.evidence_summary?.trim()) {
+    throw new SearchHistoryValidationError(["evidence_summary is required for all confidence levels"]);
+  }
+
+  const states = normalizeStatesArray(input.states ?? []);
+  const sports = normalizeSportsArray(input.sports ?? []);
+  const families = dedupeCaseInsensitiveArray(
+    (input.tournament_families ?? []).map((s) => s.trim()).filter(Boolean)
+  );
+  const clusters = dedupeCaseInsensitiveArray(
+    (input.venue_clusters ?? []).map((s) => s.trim()).filter(Boolean)
+  );
+  const monitoringUrls = normalizeMonitoringUrlsArray(input.monitoring_urls);
+
+  if (input.next_monitor_after) {
+    validateIsoDate(input.next_monitor_after, "next_monitor_after");
+  }
+
+  const row = {
+    id: randomUUID(),
+    search_run_id: input.search_run_id,
+    organizer_name: input.organizer_name?.trim() ?? null,
+    organizer_domain: domain,
+    confidence_level: input.confidence_level,
+    evidence_summary: input.evidence_summary.trim(),
+    states,
+    sports,
+    tournament_families: families,
+    venue_clusters: clusters,
+    monitoring_urls: monitoringUrls,
+    recommended_cadence: input.recommended_cadence?.trim() ?? null,
+    next_monitor_after: input.next_monitor_after ?? null,
+    registration_platform: input.registration_platform?.trim() ?? null,
+    scheduling_platform: input.scheduling_platform?.trim() ?? null,
+    notes: input.notes ?? null,
+    created_at: nowIso()
+  };
+
+  if (mockMode()) {
+    const existing = mockOrgIntel.find(
+      (r) => r.search_run_id === row.search_run_id && r.organizer_domain === row.organizer_domain
+    );
+    if (existing) {
+      if (orgIntelRowsMatch(existing, row)) return { row: existing, inserted: false };
+      throw new SearchHistoryValidationError([
+        `organizer intelligence for "${domain}" already exists for this run with different data; ` +
+          `use get_search_organizer_intelligence to retrieve the existing row`
+      ]);
+    }
+    mockOrgIntel.push(row);
+    return { row, inserted: true };
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("tournament_search_organizer_intelligence")
+    .insert(row)
+    .select()
+    .single();
+
+  if (!error) return { row: data as SearchOrganizerIntelligenceRow, inserted: true };
+
+  if ((error as any).code === "23505") {
+    const { data: existing, error: fetchErr } = await supabase
+      .from("tournament_search_organizer_intelligence")
+      .select("*")
+      .eq("search_run_id", input.search_run_id)
+      .eq("organizer_domain", domain)
+      .single();
+    if (fetchErr) throw new Error(fetchErr.message);
+    if (orgIntelRowsMatch(existing, row)) return { row: existing as SearchOrganizerIntelligenceRow, inserted: false };
+    throw new SearchHistoryValidationError([
+      `organizer intelligence for "${domain}" already exists for this run with different data; ` +
+        `use get_search_organizer_intelligence to retrieve the existing row`
+    ]);
+  }
+
+  throw new Error(error.message);
+}
+
+// ---------------------------------------------------------------------------
+// get_search_organizer_intelligence
+// ---------------------------------------------------------------------------
+
+export async function getSearchOrganizerIntelligence(
+  filters: GetSearchOrganizerIntelligenceInput
+): Promise<{ data: SearchOrganizerIntelligenceRow[]; total: number; limit: number; offset: number }> {
+  const domain = filters.organizer_domain ? normalizeOrganizerDomain(filters.organizer_domain) : undefined;
+  const state = filters.state ? normalizeAndValidateState(filters.state) : undefined;
+  const sport = filters.sport ? normalizeAndValidateSport(filters.sport) : undefined;
+
+  if (filters.next_monitor_from) validateIsoDate(filters.next_monitor_from, "next_monitor_from");
+  if (filters.next_monitor_to) validateIsoDate(filters.next_monitor_to, "next_monitor_to");
+  assertDateOrder(filters.next_monitor_from, filters.next_monitor_to, "next_monitor_from/next_monitor_to");
+
+  if (mockMode()) {
+    let filtered = [...mockOrgIntel];
+    if (filters.search_run_id) filtered = filtered.filter((r) => r.search_run_id === filters.search_run_id);
+    if (domain) filtered = filtered.filter((r) => r.organizer_domain === domain);
+    if (filters.confidence_level) filtered = filtered.filter((r) => r.confidence_level === filters.confidence_level);
+    if (state) filtered = filtered.filter((r) => r.states.includes(state));
+    if (sport) filtered = filtered.filter((r) => r.sports.includes(sport));
+    if (filters.next_monitor_from)
+      filtered = filtered.filter((r) => r.next_monitor_after && r.next_monitor_after >= filters.next_monitor_from!);
+    if (filters.next_monitor_to)
+      filtered = filtered.filter((r) => r.next_monitor_after && r.next_monitor_after <= filters.next_monitor_to!);
+    filtered.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    const total = filtered.length;
+    return {
+      data: filtered.slice(filters.offset, filters.offset + filters.limit),
+      total,
+      limit: filters.limit,
+      offset: filters.offset
+    };
+  }
+
+  const supabase = getSupabaseAdmin();
+  let query = supabase
+    .from("tournament_search_organizer_intelligence")
+    .select("*", { count: "exact" });
+
+  if (filters.search_run_id) query = query.eq("search_run_id", filters.search_run_id);
+  if (domain) query = query.eq("organizer_domain", domain);
+  if (filters.confidence_level) query = query.eq("confidence_level", filters.confidence_level);
+  if (state) query = query.contains("states", [state]);
+  if (sport) query = query.contains("sports", [sport]);
+  if (filters.next_monitor_from) query = query.gte("next_monitor_after", filters.next_monitor_from);
+  if (filters.next_monitor_to) query = query.lte("next_monitor_after", filters.next_monitor_to);
+
+  query = (query as any).order("created_at", { ascending: false });
+  query = (query as any).range(filters.offset, filters.offset + filters.limit - 1);
+
+  const { data, error, count } = await (query as any);
+  if (error) throw new Error(error.message);
+
+  return {
+    data: (data ?? []) as SearchOrganizerIntelligenceRow[],
+    total: count ?? 0,
+    limit: filters.limit,
+    offset: filters.offset
   };
 }
 

@@ -100,6 +100,41 @@ Enum-style constants for the \`surface\` argument in \`trackExternalCall\`. Iden
 - **\`requireAdmin()\`** — Auth guard on every \`/admin/*\` API route. Verifies the requesting user has admin privileges via Supabase session. Must be called at the top of every admin route handler.
 - **\`supabaseAdmin\`** — Service-role Supabase client for privileged DB operations inside admin routes and scripts. Never exposed to the browser/client.`,
 
+  searchOrganizerIntel: `## Search Organizer Intelligence
+
+Stores organizer-level research intelligence attached to one tournament-discovery search run.
+
+**Table:** \`tournament_search_organizer_intelligence\`
+
+**It is NOT:**
+- A production organizer table
+- A production tournament or venue table
+- An organizer watchlist replacement
+- A partner table
+
+**Key fields:**
+- \`organizer_domain\` — normalized hostname (lowercase, no www., no scheme/path). Unique per \`(search_run_id, organizer_domain)\`.
+- \`confidence_level\` — \`High\`, \`Medium\`, or \`Low\`. Evidence-based only.
+- \`evidence_summary\` — required for all confidence levels. Documents the source of the intelligence.
+- \`tournament_families\` — recurring tournament name families explicitly attributed to this organizer. Not inferred.
+- \`venue_clusters\` — facilities the organizer recurringly uses. Not assigned merely because one event used a venue.
+- \`monitoring_urls\` — HTTP/HTTPS URLs for ongoing monitoring. Invalid URL rejects the entire array.
+- \`recommended_cadence\` — free-text. Examples: "Weekly", "Monthly", "Weekly; daily during the two weeks before each event".
+- \`next_monitor_after\` — YYYY-MM-DD date after which the next monitoring action should be taken.
+- \`registration_platform\` / \`scheduling_platform\` — descriptive intelligence only. A platform must not be treated as the organizer without direct evidence.
+
+**Tools:**
+- \`get_search_organizer_intelligence\` — read (no write flag required)
+- \`insert_search_organizer_intelligence\` — write, requires \`ENABLE_SEARCH_HISTORY_WRITES=true\`
+
+**Write intent rule:** Reviewing or summarizing organizer intelligence is read-only. Use \`insert_search_organizer_intelligence\` only when the user explicitly asks to save, record, or log organizer intelligence.
+
+**Idempotency:** Re-inserting identical data returns the existing row (\`inserted: false\`). Inserting the same domain with different data returns an actionable conflict error — use \`get_search_organizer_intelligence\` to inspect the existing row.
+
+**RLS:** \`anon\` and \`authenticated\` roles have no access. Service role only (same as all other search-history tables).
+
+**Workflow position:** Optional step after findings are recorded, before or after \`finalize_tournament_search_run\`. Does not affect numerical finding metrics.`,
+
   planned: `## Planned / Not Yet Built
 
 - **\`api_usage_alarms\` table** — Will store alarm configs (threshold, API, surface, comparison operator).
@@ -154,6 +189,14 @@ const KEYWORD_MAP: Array<{ keywords: string[]; section: SectionKey }> = [
   {
     keywords: ["requireadmin", "require admin", "supabaseadmin", "service role", "auth guard"],
     section: "auth"
+  },
+  {
+    keywords: [
+      "organizer intelligence", "search organizer", "insert_search_organizer", "get_search_organizer",
+      "organizer_intelligence", "tournament_search_organizer", "monitoring cadence",
+      "next_monitor", "venue cluster", "tournament famil", "confidence level", "evidence_summary"
+    ],
+    section: "searchOrganizerIntel"
   },
   {
     keywords: [

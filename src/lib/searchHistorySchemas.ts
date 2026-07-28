@@ -387,6 +387,78 @@ export const getNextSearchPrioritiesOutput = z.object({
   fallback_limitation: z.string().nullable()
 });
 
+// ---------------------------------------------------------------------------
+// insert_search_organizer_intelligence / get_search_organizer_intelligence
+// ---------------------------------------------------------------------------
+
+export const orgIntelConfidenceLevelEnum = z.enum(["High", "Medium", "Low"]);
+
+export const insertSearchOrganizerIntelligenceInput = z.object({
+  search_run_id: z.string().min(1),
+  organizer_name: z.string().trim().max(300).optional(),
+  organizer_domain: z.string().min(1),
+  confidence_level: orgIntelConfidenceLevelEnum,
+  evidence_summary: z.string().max(10000).optional(),
+  states: z.array(z.string()).optional().default([]),
+  sports: z.array(z.string()).optional().default([]),
+  tournament_families: z.array(z.string()).optional().default([]),
+  venue_clusters: z.array(z.string()).optional().default([]),
+  monitoring_urls: z.array(z.string()).optional().default([]),
+  recommended_cadence: z.string().trim().max(500).optional(),
+  next_monitor_after: z.string().optional(),
+  registration_platform: z.string().trim().max(200).optional(),
+  scheduling_platform: z.string().trim().max(200).optional(),
+  notes: z.string().max(10000).optional()
+});
+
+export const searchOrganizerIntelligenceRowSchema = z.object({
+  id: z.string(),
+  search_run_id: z.string(),
+  organizer_name: z.string().nullable(),
+  organizer_domain: z.string(),
+  confidence_level: orgIntelConfidenceLevelEnum,
+  evidence_summary: z.string().nullable(),
+  states: z.array(z.string()),
+  sports: z.array(z.string()),
+  tournament_families: z.array(z.string()),
+  venue_clusters: z.array(z.string()),
+  monitoring_urls: z.array(z.string()),
+  recommended_cadence: z.string().nullable(),
+  next_monitor_after: z.string().nullable(),
+  registration_platform: z.string().nullable(),
+  scheduling_platform: z.string().nullable(),
+  notes: z.string().nullable(),
+  created_at: z.string()
+});
+
+export const insertSearchOrganizerIntelligenceOutput = z.object({
+  row: searchOrganizerIntelligenceRowSchema,
+  inserted: z.boolean()
+});
+
+export const getSearchOrganizerIntelligenceInput = z.object({
+  search_run_id: z.string().optional(),
+  organizer_domain: z.string().optional(),
+  confidence_level: orgIntelConfidenceLevelEnum.optional(),
+  state: z.string().optional(),
+  sport: z.string().optional(),
+  next_monitor_from: z.string().optional(),
+  next_monitor_to: z.string().optional(),
+  limit: z.number().int().positive().max(200).optional().default(50),
+  offset: z.number().int().nonnegative().optional().default(0)
+});
+
+export const getSearchOrganizerIntelligenceOutput = z.object({
+  data: z.array(searchOrganizerIntelligenceRowSchema),
+  total: z.number(),
+  limit: z.number(),
+  offset: z.number()
+});
+
+export type SearchOrganizerIntelligenceRow = z.infer<typeof searchOrganizerIntelligenceRowSchema>;
+export type InsertSearchOrganizerIntelligenceInput = z.infer<typeof insertSearchOrganizerIntelligenceInput>;
+export type GetSearchOrganizerIntelligenceInput = z.infer<typeof getSearchOrganizerIntelligenceInput>;
+
 export type TournamentSearchRun = z.infer<typeof tournamentSearchRunSchema>;
 export type TournamentSearchScope = z.infer<typeof tournamentSearchScopeSchema>;
 export type TournamentSearchFinding = z.infer<typeof tournamentSearchFindingSchema>;

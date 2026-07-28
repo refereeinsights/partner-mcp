@@ -142,3 +142,40 @@ export function truncatePromptForStorage(text: string): { stored: string; trunca
 export function hashPrompt(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
 }
+
+/**
+ * Validates every URL; if any is invalid, rejects the whole array and reports
+ * every invalid element (same all-or-nothing contract as normalizeOrganizerDomainsArray).
+ */
+export function normalizeMonitoringUrlsArray(urls: string[] | undefined): string[] {
+  if (!urls || urls.length === 0) return [];
+  const issues: string[] = [];
+  const normalized: string[] = [];
+  for (const url of urls) {
+    try {
+      normalized.push(validateHttpUrl(url, "monitoring_urls[]"));
+    } catch (err) {
+      if (err instanceof SearchHistoryValidationError) issues.push(...err.issues);
+      else throw err;
+    }
+  }
+  if (issues.length > 0) throw new SearchHistoryValidationError(issues);
+  return Array.from(new Set(normalized));
+}
+
+/**
+ * Trims, removes empty strings, and deduplicates case-insensitively while
+ * preserving the first-seen display value.
+ */
+export function dedupeCaseInsensitiveArray(values: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const v of values) {
+    const key = v.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(v);
+    }
+  }
+  return result;
+}

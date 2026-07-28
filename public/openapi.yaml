@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: TournamentInsights Intelligence API
   description: Data intelligence and partner monetization tools for TournamentInsights / RefereeInsights
-  version: 1.2.1
+  version: 1.3.0
 
 servers:
   - url: https://partnermcp-git-main-rod-davis-projects.vercel.app
@@ -86,6 +86,8 @@ paths:
                     - insert_tournament_search_finding
                     - insert_tournament_search_findings
                     - finalize_tournament_search_run
+                    - get_search_organizer_intelligence
+                    - insert_search_organizer_intelligence
 
                 sport:
                   type: string
@@ -462,6 +464,60 @@ paths:
                 next_search_after:
                   type: string
                   description: Date (YYYY-MM-DD) after which this state/sport should be searched again.
+
+                confidence_level:
+                  type: string
+                  enum:
+                    - High
+                    - Medium
+                    - Low
+                  description: Evidence-based confidence level for organizer intelligence.
+
+                evidence_summary:
+                  type: string
+                  description: Summary of the evidence supporting the organizer intelligence. Required for all confidence levels.
+
+                organizer_name:
+                  type: string
+                  description: Display name of the organizer (e.g. "NCS Southwest Arizona / Bruno Cafarelli").
+
+                tournament_families:
+                  type: array
+                  items:
+                    type: string
+                  description: Recurring tournament name families attributed to this organizer. Must be explicitly evidenced.
+
+                venue_clusters:
+                  type: array
+                  items:
+                    type: string
+                  description: Facilities this organizer recurringly uses. Not inferred from a single-event venue association.
+
+                monitoring_urls:
+                  type: array
+                  items:
+                    type: string
+                  description: HTTP/HTTPS monitoring URLs for the organizer. Invalid URL rejects the entire array.
+
+                recommended_cadence:
+                  type: string
+                  description: "Free-text monitoring cadence. Examples: Weekly, Monthly, Weekly; daily during the two weeks before each event."
+
+                registration_platform:
+                  type: string
+                  description: Registration platform used by the organizer (descriptive only; not a proxy for organizer identity).
+
+                scheduling_platform:
+                  type: string
+                  description: Scheduling/results platform used by the organizer (descriptive only).
+
+                next_monitor_from:
+                  type: string
+                  description: Lower bound for next_monitor_after filter, YYYY-MM-DD.
+
+                next_monitor_to:
+                  type: string
+                  description: Upper bound for next_monitor_after filter, YYYY-MM-DD.
 
                 target_year:
                   type: integer

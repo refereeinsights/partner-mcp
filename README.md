@@ -68,25 +68,44 @@ Operational research data — tournament-discovery search runs, per-`(state, spo
 | `get_search_run_findings` | List findings (defaults to current/non-superseded only); filter by run/scope/state/sport/candidate_status/organizer_domain/window. |
 | `get_search_coverage` | State-and-sport coverage rolled up from scopes: run counts, qualified yield rate, unresolved-verification counts, known organizer domains. |
 | `get_next_search_priorities` | Scored next-search recommendations. Only surfaces combinations already present in `tournament_search_run_scopes` — cannot identify never-searched combinations. |
+| `get_search_organizer_intelligence` | Query stored organizer ecosystem intelligence attached to search runs. Filter by run, domain, confidence, state, sport, or next-monitor date window. |
 | `insert_tournament_search_run` | Record a search run. Idempotent via `source_batch_id` (write-gated, separate flag — see below). |
 | `insert_tournament_search_scope` | Record a `(state, sport)` scope for a run (write-gated). |
 | `insert_tournament_search_finding` | Record a finding; supports supersession via `supersedes_finding_id` (write-gated). |
 | `insert_tournament_search_findings` | Batch-insert findings (max 100), all-or-nothing validation (write-gated). |
 | `finalize_tournament_search_run` | Reconcile scope/run metrics from current findings, resolve unscoped findings, set `completed_at`/status. Idempotent (write-gated). |
+| `insert_search_organizer_intelligence` | Record organizer ecosystem intelligence for a search run: confidence, evidence, tournament families, venue clusters, monitoring URLs, cadence. Idempotent on `(search_run_id, organizer_domain)` (write-gated). |
+
+**Typical workflow:**
+1. `insert_tournament_search_run` — record the run
+2. `insert_tournament_search_scope` — record each (state, sport) scope
+3. `insert_tournament_search_findings` — batch-record findings
+4. `insert_search_organizer_intelligence` *(optional)* — record per-organizer ecosystem intelligence (confidence, evidence, families, venues, monitoring URLs, cadence). May be inserted before or after finalization. Does not affect numerical finding metrics.
+5. `finalize_tournament_search_run` — reconcile metrics, set status
 
 **Write-gating decision:** these write tools require `ENABLE_SEARCH_HISTORY_WRITES=true`, a flag separate from `ENABLE_MCP_WRITES`. Search-history writes are the routine, potentially high-frequency write path for this feature, unlike the existing admin write tools above (rare, manual actions). Both flags require `SUPABASE_SERVICE_ROLE_KEY`.
 
-**Schema:** apply `tournament_search_history_schema_v1.sql` from the main TournamentInsights MCP repo (`src/db/sql/`) against the shared Supabase project — it is not duplicated into this repo to avoid two divergent copies of the same schema. RLS on all three tables grants no access to `anon`/`authenticated`; only the service-role key (used throughout this server) can reach this data.
+**Schema:** apply `tournament_search_history_schema_v1.sql` from the main TournamentInsights MCP repo (`src/db/sql/`) for the three core search-history tables, then apply `src/db/sql/tournament_search_organizer_intelligence_v1.sql` from this repo for the organizer-intelligence table. RLS on all tables grants no access to `anon`/`authenticated`; only the service-role key (used throughout this server) can reach this data.
+
+**Organizer intelligence table:** `tournament_search_organizer_intelligence` — one row per `(search_run_id, organizer_domain)`. Stores confidence level (High/Medium/Low), evidence summary, tournament families, venue clusters, monitoring URLs, recommended cadence, next-monitor date, and registration/scheduling platforms. Does not create production organizer, tournament, or watchlist rows. Use `insert_search_organizer_intelligence` only when explicitly asked to save organizer intelligence — reading or summarizing is read-only via `get_search_organizer_intelligence`.
 
 **Known limitation carried over from the main repo:** no DB transaction/RPC wrapper exists yet, so finding supersession and batch insert use sequential statements (with a best-effort compensating rollback on batch failure) rather than a single atomic transaction.
 
 **`MOCK_MODE` caveat specific to this feature:** the in-memory mock store mutates module-level arrays, unlike the read-only `MOCK_TOURNAMENTS` fixture already in this repo. That mutation is only reliable within a single warm process — verified working via a `next dev` server for individual request flows, but Next.js dev/Vercel serverless make no guarantee that state persists identically across separate requests (dev-mode module reloads, cold starts, multiple instances). Don't rely on `MOCK_MODE` to test cross-request idempotency (e.g. repeated `source_batch_id` calls) here; that guarantee only actually holds against real Supabase (its `on conflict` unique index), which needs a live/staging project to verify.
 
+### Roll-Forward Research
+
+| Tool | Description |
+|---|---|
+| `get_roll_forward_log` | Roll-forward research log with full parent tournament context (slug, address, zip, sport, state, city, dates). Filter by status, target_year, batch_label, sport, state. |
+| `upsert_roll_forward_log` | Insert or update a roll-forward log entry on `(parent_tournament_id, target_year)`. Statuses: `pending`, `no_dates_announced`, `discontinued`, `done`, `ambiguous`. Requires `ENABLE_MCP_WRITES=true`. |
+
 ### System
 
 | Tool | Description |
 |---|---|
-| `mcp_healthcheck` | Returns server status, write mode, and env var presence. |
+| `mcp_healthcheck` | Returns server status, write mode, mock mode, and env var presence. |
+| `list_tools` | Full inventory of available tools with category, access level, and description. Call first in any new session. |
 
 ## Security model
 
@@ -211,6 +230,7 @@ Search-history write tools (when `ENABLE_SEARCH_HISTORY_WRITES=true`) also requi
 - `public.tournament_search_runs`
 - `public.tournament_search_run_scopes`
 - `public.tournament_search_run_findings`
+- `public.tournament_search_organizer_intelligence`
 
 For production, consider using a scoped Postgres role rather than the full service role key.
 

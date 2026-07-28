@@ -57,6 +57,11 @@ import {
 import { getRollForwardLog, upsertRollForwardLog } from "../../../lib/queries";
 import { getRollForwardLogInput, upsertRollForwardLogInput } from "../../../lib/schemas";
 import { TOOLS } from "../../../tools/listTools";
+import { insertSearchOrganizerIntelligence, getSearchOrganizerIntelligence } from "../../../lib/searchHistoryQueries";
+import {
+  insertSearchOrganizerIntelligenceInput,
+  getSearchOrganizerIntelligenceInput
+} from "../../../lib/searchHistorySchemas";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -282,6 +287,14 @@ export async function POST(request: Request) {
 
       case "finalize_tournament_search_run":
         result = await finalizeTournamentSearchRun(finalizeTournamentSearchRunInput.parse(params));
+        break;
+
+      case "insert_search_organizer_intelligence":
+        result = await insertSearchOrganizerIntelligence(insertSearchOrganizerIntelligenceInput.parse(params));
+        break;
+
+      case "get_search_organizer_intelligence":
+        result = await getSearchOrganizerIntelligence(getSearchOrganizerIntelligenceInput.parse(params));
         break;
 
       case "mcp_healthcheck":

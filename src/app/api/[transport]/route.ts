@@ -37,11 +37,13 @@ import { registerGetSearchRuns } from "../../../tools/getSearchRuns";
 import { registerGetSearchRunFindings } from "../../../tools/getSearchRunFindings";
 import { registerGetSearchCoverage } from "../../../tools/getSearchCoverage";
 import { registerGetNextSearchPriorities } from "../../../tools/getNextSearchPriorities";
+import { registerGetSearchOrganizerIntelligence } from "../../../tools/getSearchOrganizerIntelligence";
 import { registerInsertTournamentSearchRun } from "../../../tools/insertTournamentSearchRun";
 import { registerInsertTournamentSearchScope } from "../../../tools/insertTournamentSearchScope";
 import { registerInsertTournamentSearchFinding } from "../../../tools/insertTournamentSearchFinding";
 import { registerInsertTournamentSearchFindings } from "../../../tools/insertTournamentSearchFindings";
 import { registerFinalizeTournamentSearchRun } from "../../../tools/finalizeTournamentSearchRun";
+import { registerInsertSearchOrganizerIntelligence } from "../../../tools/insertSearchOrganizerIntelligence";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -121,6 +123,7 @@ const mcpHandler = createMcpHandler(
     registerGetSearchRunFindings(server);
     registerGetSearchCoverage(server);
     registerGetNextSearchPriorities(server);
+    registerGetSearchOrganizerIntelligence(server);
 
     // Search-history writes: gated behind their own flag, separate from
     // ENABLE_MCP_WRITES, since they're the routine/high-frequency write path
@@ -131,6 +134,7 @@ const mcpHandler = createMcpHandler(
       registerInsertTournamentSearchFinding(server);
       registerInsertTournamentSearchFindings(server);
       registerFinalizeTournamentSearchRun(server);
+      registerInsertSearchOrganizerIntelligence(server);
     }
 
     registerListTools(server);

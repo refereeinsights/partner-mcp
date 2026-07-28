@@ -31,11 +31,13 @@ export const TOOLS = [
   { name: "get_search_run_findings", category: "search_history", access: "read", description: "List tournament-discovery findings (defaults to current/non-superseded only). Filter by run, scope, state, sport, candidate_status, organizer_domain, or window." },
   { name: "get_search_coverage", category: "search_history", access: "read", description: "State-and-sport search coverage rolled up from scopes: run counts, qualified yield rate, unresolved-verification counts, known organizer domains." },
   { name: "get_next_search_priorities", category: "search_history", access: "read", description: "Scored next-search recommendations. Only surfaces state-and-sport combinations already present in tournament_search_run_scopes." },
+  { name: "get_search_organizer_intelligence", category: "search_history", access: "read", description: "Query stored organizer ecosystem intelligence attached to search runs. Filter by run, domain, confidence, state, sport, or next-monitor date window." },
   { name: "insert_tournament_search_run", category: "search_history", access: "write", description: "Record a search run. Idempotent via source_batch_id. Requires ENABLE_SEARCH_HISTORY_WRITES=true." },
   { name: "insert_tournament_search_scope", category: "search_history", access: "write", description: "Record a (state, sport) scope for a search run. Requires ENABLE_SEARCH_HISTORY_WRITES=true." },
   { name: "insert_tournament_search_finding", category: "search_history", access: "write", description: "Record a single tournament-discovery finding. Supports supersession via supersedes_finding_id. Requires ENABLE_SEARCH_HISTORY_WRITES=true." },
   { name: "insert_tournament_search_findings", category: "search_history", access: "write", description: "Batch-insert findings (max 100), all-or-nothing validation. Requires ENABLE_SEARCH_HISTORY_WRITES=true." },
   { name: "finalize_tournament_search_run", category: "search_history", access: "write", description: "Reconcile a search run's scope/run metrics from current findings and set completed_at/status. Idempotent. Requires ENABLE_SEARCH_HISTORY_WRITES=true." },
+  { name: "insert_search_organizer_intelligence", category: "search_history", access: "write", description: "Record organizer ecosystem intelligence for a search run: confidence, evidence, tournament families, venue clusters, monitoring URLs, cadence. Requires ENABLE_SEARCH_HISTORY_WRITES=true." },
 
   // Partner / commercial
   { name: "get_partner_pipeline", category: "partner", access: "read", description: "Partner pipeline status and stage breakdown." },
