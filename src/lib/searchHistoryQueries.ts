@@ -226,25 +226,46 @@ export async function insertTournamentSearchRun(input: InsertTournamentSearchRun
   }
 
   const supabase = getSupabaseAdmin();
+
+  // Case A: no source_batch_id — plain insert, no conflict clause.
+  if (!row.source_batch_id) {
+    const { data, error } = await supabase
+      .from("tournament_search_runs")
+      .insert(row)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data as TournamentSearchRun;
+  }
+
+  // Case B: source_batch_id present — idempotent insert via full unique index.
+  // Uses ON CONFLICT (source_batch_id) DO NOTHING, which requires
+  // tournament_search_runs_source_batch_id_uidx to exist on the database.
   const { data, error } = await supabase
     .from("tournament_search_runs")
     .upsert(row, { onConflict: "source_batch_id", ignoreDuplicates: true })
     .select();
-  if (error) throw new Error(error.message);
+
+  if (error) {
+    if ((error as any).code === "42P10" || error.message.includes("no unique or exclusion constraint")) {
+      throw new Error(
+        "Search-history schema is missing the source_batch_id uniqueness index required for idempotent run insertion. " +
+        "Apply src/db/sql/tournament_search_runs_source_batch_id_uidx_v1.sql to the Supabase project."
+      );
+    }
+    throw new Error(error.message);
+  }
 
   if (data && data.length > 0) return data[0] as TournamentSearchRun;
 
-  if (row.source_batch_id) {
-    const { data: existing, error: fetchErr } = await supabase
-      .from("tournament_search_runs")
-      .select("*")
-      .eq("source_batch_id", row.source_batch_id)
-      .single();
-    if (fetchErr) throw new Error(fetchErr.message);
-    return existing as TournamentSearchRun;
-  }
-
-  throw new Error("insert_tournament_search_run: no row returned and no source_batch_id to resolve conflict");
+  // ON CONFLICT DO NOTHING fired — existing row with this source_batch_id.
+  const { data: existing, error: fetchErr } = await supabase
+    .from("tournament_search_runs")
+    .select("*")
+    .eq("source_batch_id", row.source_batch_id)
+    .single();
+  if (fetchErr) throw new Error(fetchErr.message);
+  return existing as TournamentSearchRun;
 }
 
 async function getRunById(runId: string): Promise<any | null> {
