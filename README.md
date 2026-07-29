@@ -79,12 +79,13 @@ Operational research data — tournament-discovery search runs, per-`(state, spo
 
 **Recommended workflow (single call):**
 
-Use `insert_complete_search_package` to record everything in one atomic call:
-- `run` — run fields (`source_batch_id` required)
-- `scopes` — array of `{ state, sport }` objects (min 1)
-- `findings` *(optional)* — array of finding objects; set `search_scope_index` to assign each finding to a scope, or rely on auto-assignment for single-scope packages
-- `organizer_intelligence` *(optional)* — array of organizer intelligence objects (`organizer_domain`, `confidence_level`, and `evidence_summary` required per entry)
-- `finalize` *(default true)* — reconcile metrics and mark the run completed in the same transaction
+Use `insert_complete_search_package` to record everything in one atomic call. Parameters are passed as JSON strings because ChatGPT's MCP client only supports scalar parameter types (string, boolean) — array and object types are rejected at the client layer regardless of schema:
+
+- `run_json` — JSON string of the run descriptor (`source_batch_id` required). Example: `'{"source_batch_id":"batch-001","states":["CA"],"sports":["soccer"],"searched_at":"2026-07-29T12:00:00Z"}'`
+- `scopes_json` — JSON array string of `{ state, sport }` objects (min 1). Example: `'[{"state":"CA","sport":"soccer"}]'`
+- `findings_json` *(optional, default `[]`)* — JSON array string of finding objects; set `search_scope_index` (zero-based) to assign each finding to a scope, or rely on auto-assignment for single-scope packages
+- `organizer_intelligence_json` *(optional, default `[]`)* — JSON array string of organizer intelligence objects (`organizer_domain`, `confidence_level`, `evidence_summary` required per entry)
+- `finalize` *(boolean, default true)* — reconcile metrics and mark the run completed in the same transaction
 
 The tool is idempotent: repeated calls with the same `source_batch_id` return `status: "reused"` if key run fields match, or `status: "conflict"` (with a diff) if they differ. Findings and org intel are deduplicated within each call.
 
@@ -107,7 +108,10 @@ RLS is enabled on all tables with no permissive policies for `anon`/`authenticat
 
 **Organizer intelligence table:** `tournament_search_organizer_intelligence` — one row per `(search_run_id, organizer_domain)`. Stores confidence level (High/Medium/Low), evidence summary, tournament families, venue clusters, monitoring URLs, recommended cadence, next-monitor date, and registration/scheduling platforms. Does not create production organizer, tournament, or watchlist rows. Use `insert_search_organizer_intelligence` (or include entries in `insert_complete_search_package`) only when explicitly asked to save organizer intelligence — reading or summarizing is read-only via `get_search_organizer_intelligence`.
 
-**`insert_complete_search_package` limitation:** requires the RPC migration (`insert_complete_search_package_rpc_v1.sql`) to be applied. Calling the tool without the migration returns a descriptive error naming both SQL files to apply.
+**`insert_complete_search_package` notes:**
+- Requires the RPC migration (`insert_complete_search_package_rpc_v1.sql`) to be applied. Calling without the migration returns a descriptive error.
+- Parameters `run_json`, `scopes_json`, `findings_json`, `organizer_intelligence_json` are JSON strings (not objects/arrays) because ChatGPT's MCP client rejects array and object parameter types. Parse happens server-side.
+- The Action API (`/api/action`) route still accepts the native structured format (`run`, `scopes`, `findings`, `organizer_intelligence` as objects/arrays) — only the MCP interface uses the JSON-string form.
 
 **`MOCK_MODE` caveat specific to this feature:** the in-memory mock store mutates module-level arrays, unlike the read-only `MOCK_TOURNAMENTS` fixture already in this repo. That mutation is only reliable within a single warm process — verified working via a `next dev` server for individual request flows, but Next.js dev/Vercel serverless make no guarantee that state persists identically across separate requests (dev-mode module reloads, cold starts, multiple instances). Don't rely on `MOCK_MODE` to test cross-request idempotency (e.g. repeated `source_batch_id` calls) here; that guarantee only actually holds against real Supabase (its `on conflict` unique index), which needs a live/staging project to verify.
 
