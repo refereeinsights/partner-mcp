@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: TournamentInsights Intelligence API
   description: Data intelligence and partner monetization tools for TournamentInsights / RefereeInsights
-  version: 1.4.0
+  version: 1.4.1
 
 servers:
   - url: https://partnermcp-git-main-rod-davis-projects.vercel.app
@@ -566,37 +566,243 @@ paths:
 
                 findings:
                   type: array
-                  description: For insert_tournament_search_findings — array of finding objects (same shape as insert_tournament_search_finding params, omitting search_run_id).
+                  description: >
+                    Array of finding objects. For insert_tournament_search_findings, omit search_run_id (pass it as a top-level param).
+                    For insert_complete_search_package, include search_scope_index (zero-based index into the scopes array)
+                    instead of search_scope_id; omit search_run_id entirely.
                   items:
                     type: object
+                    properties:
+                      search_scope_index:
+                        type: integer
+                        description: Zero-based index into the package scopes array. Required for insert_complete_search_package when there are multiple scopes.
+                      candidate_status:
+                        type: string
+                        enum:
+                          - Qualified
+                          - Needs Venue Verification
+                          - Needs Address Verification
+                          - Needs Date Verification
+                          - Out of Scope - State
+                          - Out of Scope - Date
+                          - Out of Scope - Sport
+                          - Not a Tournament
+                          - Duplicate
+                          - Other Exclusion
+                      tournament_name:
+                        type: string
+                      sport:
+                        type: string
+                      start_date:
+                        type: string
+                        description: YYYY-MM-DD
+                      end_date:
+                        type: string
+                        description: YYYY-MM-DD
+                      state:
+                        type: string
+                        description: 2-letter US state code.
+                      source_url:
+                        type: string
+                        description: Raw HTTP/HTTPS URL (not markdown link syntax).
+                      venue_name:
+                        type: string
+                      venue_address:
+                        type: string
+                      venue_city:
+                        type: string
+                      venue_state:
+                        type: string
+                        description: 2-letter US state code.
+                      venue_source_url:
+                        type: string
+                        description: Raw HTTP/HTTPS URL verifying the venue.
+                      organizer_name:
+                        type: string
+                      organizer_domain:
+                        type: string
+                      notes:
+                        type: string
+                      supersedes_finding_id:
+                        type: string
+                        description: UUID of the prior finding this one replaces.
                     additionalProperties: true
 
                 run:
                   type: object
-                  description: For insert_complete_search_package — search run fields (source_batch_id required, plus region_name, states, sports, dates, prompt, method, agent, model, searched_at, searched_by, organizer_domains, organizer_names, venue_names, high_value_sources, search_summary, unresolved_work, next_action, next_search_after, seasonality_conclusion).
-                  additionalProperties: true
+                  description: For insert_complete_search_package — search run descriptor. source_batch_id is required and must be a stable idempotency key for this search session.
+                  required:
+                    - source_batch_id
+                  properties:
+                    source_batch_id:
+                      type: string
+                      description: Stable idempotency key for this search run (required). Use a UUID or deterministic slug.
+                    region_name:
+                      type: string
+                      description: Free-text region label, e.g. "Southern California".
+                    states:
+                      type: array
+                      items:
+                        type: string
+                      description: 2-letter US state codes covered by this run.
+                    sports:
+                      type: array
+                      items:
+                        type: string
+                      description: Sports covered by this run (soccer, baseball, softball, lacrosse, basketball, hockey, volleyball, futsal).
+                    date_from:
+                      type: string
+                      description: Tournament window start searched, YYYY-MM-DD.
+                    date_to:
+                      type: string
+                      description: Tournament window end searched, YYYY-MM-DD.
+                    search_method:
+                      type: string
+                      description: Free-text description of the search methodology.
+                    research_agent:
+                      type: string
+                      description: Name or identifier of the agent that performed the search.
+                    research_model:
+                      type: string
+                      description: Model identifier used for the search.
+                    searched_at:
+                      type: string
+                      description: ISO 8601 timestamp when the search was performed.
+                    searched_by:
+                      type: string
+                      description: Identifier of who or what ran the search.
+                    search_prompt_version:
+                      type: string
+                      description: Version label of the research prompt used.
+                    search_prompt_text:
+                      type: string
+                      description: Full research prompt text (hashed and truncated in storage if over ~64 KB).
+                    search_summary:
+                      type: string
+                      description: Freeform summary of the search run.
+                    unresolved_work:
+                      type: string
+                      description: Freeform description of follow-up work that could not be completed.
+                    next_action:
+                      type: string
+                      description: Recommended next action for this state/sport combination.
+                    next_search_after:
+                      type: string
+                      description: Date (YYYY-MM-DD) after which this state/sport should be searched again.
+                    seasonality_conclusion:
+                      type: string
+                      description: Freeform note on seasonal patterns observed during this search.
+                    organizer_domains:
+                      type: array
+                      items:
+                        type: string
+                      description: Organizer domains discovered during this run.
+                    organizer_names:
+                      type: array
+                      items:
+                        type: string
+                      description: Organizer display names discovered during this run.
+                    venue_names:
+                      type: array
+                      items:
+                        type: string
+                      description: Venue names discovered during this run.
+                    high_value_sources:
+                      type: array
+                      items:
+                        type: string
+                      description: High-value monitoring source URLs discovered during this run.
 
                 scopes:
                   type: array
-                  description: For insert_complete_search_package — array of scope objects, each with state and sport (min 1).
+                  description: For insert_complete_search_package — one entry per (state, sport) combination searched. Minimum 1.
                   items:
                     type: object
-                    additionalProperties: true
+                    required:
+                      - state
+                      - sport
+                    properties:
+                      state:
+                        type: string
+                        description: 2-letter US state code, e.g. CA or TX.
+                      sport:
+                        type: string
+                        description: Sport name (soccer, baseball, softball, lacrosse, basketball, hockey, volleyball, futsal).
 
                 organizer_intelligence:
                   type: array
-                  description: For insert_complete_search_package — array of organizer intelligence objects (organizer_domain, confidence_level, and evidence_summary required per entry).
+                  description: For insert_complete_search_package — per-organizer ecosystem intelligence records. organizer_domain, confidence_level, and evidence_summary are required per entry.
                   items:
                     type: object
-                    additionalProperties: true
+                    required:
+                      - organizer_domain
+                      - confidence_level
+                      - evidence_summary
+                    properties:
+                      organizer_domain:
+                        type: string
+                        description: Root domain of the organizer, e.g. gotsoccer.com.
+                      organizer_name:
+                        type: string
+                        description: Display name of the organizer.
+                      confidence_level:
+                        type: string
+                        enum:
+                          - High
+                          - Medium
+                          - Low
+                        description: Evidence-based confidence level.
+                      evidence_summary:
+                        type: string
+                        description: Summary of the evidence supporting this intelligence entry (required).
+                      states:
+                        type: array
+                        items:
+                          type: string
+                        description: States where this organizer operates.
+                      sports:
+                        type: array
+                        items:
+                          type: string
+                        description: Sports this organizer runs tournaments in.
+                      tournament_families:
+                        type: array
+                        items:
+                          type: string
+                        description: Recurring tournament name families attributed to this organizer.
+                      venue_clusters:
+                        type: array
+                        items:
+                          type: string
+                        description: Facilities this organizer recurringly uses.
+                      monitoring_urls:
+                        type: array
+                        items:
+                          type: string
+                        description: HTTP/HTTPS URLs to monitor for this organizer.
+                      recommended_cadence:
+                        type: string
+                        description: Free-text monitoring cadence, e.g. "Monthly".
+                      next_monitor_after:
+                        type: string
+                        description: Date (YYYY-MM-DD) after which to check this organizer again.
+                      registration_platform:
+                        type: string
+                        description: Registration platform used by this organizer.
+                      scheduling_platform:
+                        type: string
+                        description: Scheduling or results platform used by this organizer.
+                      notes:
+                        type: string
+                        description: Freeform notes about this organizer.
 
                 finalize:
                   type: boolean
-                  description: For insert_complete_search_package — if true (default), reconciles metrics and marks the run completed after inserting all records.
+                  description: For insert_complete_search_package — if true (default), reconciles metrics and marks the run completed in the same transaction.
 
                 search_scope_index:
                   type: integer
-                  description: For insert_complete_search_package findings — zero-based index into the scopes array, used to assign each finding to a scope.
+                  description: For insert_complete_search_package findings — zero-based index into the scopes array to assign this finding to a scope. Required when there are multiple scopes and the finding state/sport is ambiguous.
 
                 seasonality_conclusion:
                   type: string
