@@ -57,10 +57,11 @@ import {
 import { getRollForwardLog, upsertRollForwardLog } from "../../../lib/queries";
 import { getRollForwardLogInput, upsertRollForwardLogInput } from "../../../lib/schemas";
 import { TOOLS } from "../../../tools/listTools";
-import { insertSearchOrganizerIntelligence, getSearchOrganizerIntelligence } from "../../../lib/searchHistoryQueries";
+import { insertSearchOrganizerIntelligence, getSearchOrganizerIntelligence, insertCompleteSearchPackage } from "../../../lib/searchHistoryQueries";
 import {
   insertSearchOrganizerIntelligenceInput,
-  getSearchOrganizerIntelligenceInput
+  getSearchOrganizerIntelligenceInput,
+  insertCompleteSearchPackageInput,
 } from "../../../lib/searchHistorySchemas";
 
 export const runtime = "nodejs";
@@ -295,6 +296,10 @@ export async function POST(request: Request) {
 
       case "get_search_organizer_intelligence":
         result = await getSearchOrganizerIntelligence(getSearchOrganizerIntelligenceInput.parse(params));
+        break;
+
+      case "insert_complete_search_package":
+        result = await insertCompleteSearchPackage(insertCompleteSearchPackageInput.parse(params));
         break;
 
       case "mcp_healthcheck":

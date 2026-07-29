@@ -471,3 +471,135 @@ export type GetSearchRunsInput = z.infer<typeof getSearchRunsInput>;
 export type GetSearchRunFindingsInput = z.infer<typeof getSearchRunFindingsInput>;
 export type GetSearchCoverageInput = z.infer<typeof getSearchCoverageInput>;
 export type GetNextSearchPrioritiesInput = z.infer<typeof getNextSearchPrioritiesInput>;
+
+// ---------------------------------------------------------------------------
+// insert_complete_search_package
+// ---------------------------------------------------------------------------
+
+const insertCompleteSearchPackageRunInput = z.object({
+  source_batch_id: z.string().trim().min(1).max(300),
+  region_name: z.string().trim().min(1).max(200).optional(),
+  states: z.array(z.string()).optional().default([]),
+  sports: z.array(z.string()).optional().default([]),
+  date_from: z.string().optional(),
+  date_to: z.string().optional(),
+  search_prompt_version: z.string().trim().max(100).optional(),
+  search_prompt_text: z.string().optional(),
+  search_prompt_hash: z.string().optional(),
+  search_method: z.string().trim().max(200).optional(),
+  research_agent: z.string().trim().max(200).optional(),
+  research_model: z.string().trim().max(200).optional(),
+  searched_at: z.string().optional(),
+  searched_by: z.string().trim().max(200).optional(),
+  search_summary: z.string().max(20000).optional(),
+  unresolved_work: z.string().max(20000).optional(),
+  next_action: z.string().max(20000).optional(),
+  next_search_after: z.string().optional(),
+  seasonality_conclusion: z.string().max(5000).optional(),
+  organizer_domains: z.array(z.string()).optional().default([]),
+  organizer_names: z.array(z.string().trim().min(1)).optional().default([]),
+  venue_names: z.array(z.string().trim().min(1)).optional().default([]),
+  high_value_sources: z.array(z.string()).optional().default([]),
+});
+
+const insertCompleteSearchPackageScopeInput = z.object({
+  state: z.string().min(1),
+  sport: z.string().min(1),
+});
+
+const insertCompleteSearchPackageFindingInput = z.object({
+  search_scope_index: z.number().int().nonnegative().optional(),
+  candidate_status: candidateStatusEnum,
+  tournament_name: z.string().trim().max(300).optional(),
+  sport: z.string().min(1).optional(),
+  start_date: z.string().optional(),
+  end_date: z.string().optional(),
+  state: z.string().min(1).optional(),
+  source_url: z.string().optional(),
+  venue_name: z.string().trim().max(300).optional(),
+  venue_address: z.string().trim().max(500).optional(),
+  venue_city: z.string().trim().max(200).optional(),
+  venue_state: z.string().min(1).optional(),
+  venue_source_url: z.string().optional(),
+  existing_tournament_id: z.string().min(1).optional(),
+  organizer_name: z.string().trim().max(300).optional(),
+  organizer_domain: z.string().optional(),
+  notes: z.string().max(5000).optional(),
+  supersedes_finding_id: z.string().min(1).optional(),
+});
+
+const insertCompleteSearchPackageOrgIntelInput = z.object({
+  organizer_name: z.string().trim().max(300).optional(),
+  organizer_domain: z.string().min(1),
+  confidence_level: orgIntelConfidenceLevelEnum,
+  evidence_summary: z.string().max(10000),
+  states: z.array(z.string()).optional().default([]),
+  sports: z.array(z.string()).optional().default([]),
+  tournament_families: z.array(z.string()).optional().default([]),
+  venue_clusters: z.array(z.string()).optional().default([]),
+  monitoring_urls: z.array(z.string()).optional().default([]),
+  recommended_cadence: z.string().trim().max(500).optional(),
+  registration_platform: z.string().trim().max(200).optional(),
+  scheduling_platform: z.string().trim().max(200).optional(),
+  next_monitor_after: z.string().optional(),
+  notes: z.string().max(10000).optional(),
+});
+
+export const insertCompleteSearchPackageInput = z.object({
+  run: insertCompleteSearchPackageRunInput,
+  scopes: z.array(insertCompleteSearchPackageScopeInput).min(1),
+  findings: z.array(insertCompleteSearchPackageFindingInput).max(100).optional().default([]),
+  organizer_intelligence: z.array(insertCompleteSearchPackageOrgIntelInput).optional().default([]),
+  finalize: z.boolean().optional().default(true),
+});
+
+const completePackageMetricsSchema = z.object({
+  candidates_found: z.number(),
+  qualified_rows: z.number(),
+  needs_venue_verification: z.number(),
+  needs_address_verification: z.number(),
+  needs_date_verification: z.number(),
+  duplicates_found: z.number(),
+  out_of_scope_found: z.number(),
+});
+
+export const insertCompleteSearchPackageOutput = z.union([
+  z.object({
+    status: z.enum(["created", "reused"]),
+    search_run_id: z.string(),
+    source_batch_id: z.string(),
+    scope_results: z.array(z.object({
+      input_index: z.number(),
+      search_scope_id: z.string(),
+      state: z.string(),
+      sport: z.string(),
+    })),
+    finding_results: z.object({
+      inserted: z.number(),
+      reused: z.number(),
+      superseded: z.number(),
+      finding_ids: z.array(z.string()),
+    }),
+    organizer_intelligence_results: z.object({
+      inserted: z.number(),
+      reused: z.number(),
+      record_ids: z.array(z.string()),
+    }),
+    metrics: completePackageMetricsSchema,
+    finalized: z.boolean(),
+    completed_at: z.string().nullable(),
+  }),
+  z.object({
+    status: z.literal("conflict"),
+    search_run_id: z.string(),
+    source_batch_id: z.string(),
+    conflicts: z.array(z.object({
+      path: z.string(),
+      stored_value: z.unknown(),
+      incoming_value: z.unknown(),
+    })),
+  }),
+]);
+
+export type InsertCompleteSearchPackageInput = z.infer<typeof insertCompleteSearchPackageInput>;
+export type InsertCompleteSearchPackageOutput = z.infer<typeof insertCompleteSearchPackageOutput>;

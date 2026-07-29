@@ -38,6 +38,7 @@ export const TOOLS = [
   { name: "insert_tournament_search_findings", category: "search_history", access: "write", description: "Batch-insert findings (max 100), all-or-nothing validation. Requires ENABLE_SEARCH_HISTORY_WRITES=true." },
   { name: "finalize_tournament_search_run", category: "search_history", access: "write", description: "Reconcile a search run's scope/run metrics from current findings and set completed_at/status. Idempotent. Requires ENABLE_SEARCH_HISTORY_WRITES=true." },
   { name: "insert_search_organizer_intelligence", category: "search_history", access: "write", description: "Record organizer ecosystem intelligence for a search run: confidence, evidence, tournament families, venue clusters, monitoring URLs, cadence. Requires ENABLE_SEARCH_HISTORY_WRITES=true." },
+  { name: "insert_complete_search_package", category: "search_history", access: "write", description: "Atomically record and optionally finalize a complete search package (run + scopes + findings + organizer intelligence) in one call. Idempotent via source_batch_id. Requires ENABLE_SEARCH_HISTORY_WRITES=true." },
 
   // Partner / commercial
   { name: "get_partner_pipeline", category: "partner", access: "read", description: "Partner pipeline status and stage breakdown." },

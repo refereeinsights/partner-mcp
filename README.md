@@ -75,21 +75,39 @@ Operational research data — tournament-discovery search runs, per-`(state, spo
 | `insert_tournament_search_findings` | Batch-insert findings (max 100), all-or-nothing validation (write-gated). |
 | `finalize_tournament_search_run` | Reconcile scope/run metrics from current findings, resolve unscoped findings, set `completed_at`/status. Idempotent (write-gated). |
 | `insert_search_organizer_intelligence` | Record organizer ecosystem intelligence for a search run: confidence, evidence, tournament families, venue clusters, monitoring URLs, cadence. Idempotent on `(search_run_id, organizer_domain)` (write-gated). |
+| `insert_complete_search_package` | Atomically record a complete search package (run + scopes + findings + organizer intelligence) in one call. Idempotent via `source_batch_id`. Returns `created`/`reused`/`conflict` status plus a full receipt. Requires the RPC migration (see below). Write-gated. |
 
-**Typical workflow:**
+**Recommended workflow (single call):**
+
+Use `insert_complete_search_package` to record everything in one atomic call:
+- `run` — run fields (`source_batch_id` required)
+- `scopes` — array of `{ state, sport }` objects (min 1)
+- `findings` *(optional)* — array of finding objects; set `search_scope_index` to assign each finding to a scope, or rely on auto-assignment for single-scope packages
+- `organizer_intelligence` *(optional)* — array of organizer intelligence objects (`organizer_domain`, `confidence_level`, and `evidence_summary` required per entry)
+- `finalize` *(default true)* — reconcile metrics and mark the run completed in the same transaction
+
+The tool is idempotent: repeated calls with the same `source_batch_id` return `status: "reused"` if key run fields match, or `status: "conflict"` (with a diff) if they differ. Findings and org intel are deduplicated within each call.
+
+**Alternative workflow (five separate calls):**
 1. `insert_tournament_search_run` — record the run
 2. `insert_tournament_search_scope` — record each (state, sport) scope
 3. `insert_tournament_search_findings` — batch-record findings
-4. `insert_search_organizer_intelligence` *(optional)* — record per-organizer ecosystem intelligence (confidence, evidence, families, venues, monitoring URLs, cadence). May be inserted before or after finalization. Does not affect numerical finding metrics.
+4. `insert_search_organizer_intelligence` *(optional)* — record per-organizer ecosystem intelligence
 5. `finalize_tournament_search_run` — reconcile metrics, set status
 
 **Write-gating decision:** these write tools require `ENABLE_SEARCH_HISTORY_WRITES=true`, a flag separate from `ENABLE_MCP_WRITES`. Search-history writes are the routine, potentially high-frequency write path for this feature, unlike the existing admin write tools above (rare, manual actions). Both flags require `SUPABASE_SERVICE_ROLE_KEY`.
 
-**Schema:** apply `tournament_search_history_schema_v1.sql` from the main TournamentInsights MCP repo (`src/db/sql/`) for the three core search-history tables, then apply `src/db/sql/tournament_search_organizer_intelligence_v1.sql` from this repo for the organizer-intelligence table. RLS on all tables grants no access to `anon`/`authenticated`; only the service-role key (used throughout this server) can reach this data.
+**Schema migrations (apply in order):**
+1. `tournament_search_history_schema_v1.sql` from the main TournamentInsights MCP repo (`src/db/sql/`) — three core search-history tables
+2. `src/db/sql/tournament_search_organizer_intelligence_v1.sql` — organizer-intelligence table
+3. `src/db/sql/tournament_search_runs_seasonality_conclusion_v1.sql` — adds `seasonality_conclusion` column (required before the RPC)
+4. `src/db/sql/insert_complete_search_package_rpc_v1.sql` — PL/pgSQL RPC function for `insert_complete_search_package`
 
-**Organizer intelligence table:** `tournament_search_organizer_intelligence` — one row per `(search_run_id, organizer_domain)`. Stores confidence level (High/Medium/Low), evidence summary, tournament families, venue clusters, monitoring URLs, recommended cadence, next-monitor date, and registration/scheduling platforms. Does not create production organizer, tournament, or watchlist rows. Use `insert_search_organizer_intelligence` only when explicitly asked to save organizer intelligence — reading or summarizing is read-only via `get_search_organizer_intelligence`.
+RLS is enabled on all tables with no permissive policies for `anon`/`authenticated`; only the service-role key can reach this data. The RPC is `security definer` with public execute revoked.
 
-**Known limitation carried over from the main repo:** no DB transaction/RPC wrapper exists yet, so finding supersession and batch insert use sequential statements (with a best-effort compensating rollback on batch failure) rather than a single atomic transaction.
+**Organizer intelligence table:** `tournament_search_organizer_intelligence` — one row per `(search_run_id, organizer_domain)`. Stores confidence level (High/Medium/Low), evidence summary, tournament families, venue clusters, monitoring URLs, recommended cadence, next-monitor date, and registration/scheduling platforms. Does not create production organizer, tournament, or watchlist rows. Use `insert_search_organizer_intelligence` (or include entries in `insert_complete_search_package`) only when explicitly asked to save organizer intelligence — reading or summarizing is read-only via `get_search_organizer_intelligence`.
+
+**`insert_complete_search_package` limitation:** requires the RPC migration (`insert_complete_search_package_rpc_v1.sql`) to be applied. Calling the tool without the migration returns a descriptive error naming both SQL files to apply.
 
 **`MOCK_MODE` caveat specific to this feature:** the in-memory mock store mutates module-level arrays, unlike the read-only `MOCK_TOURNAMENTS` fixture already in this repo. That mutation is only reliable within a single warm process — verified working via a `next dev` server for individual request flows, but Next.js dev/Vercel serverless make no guarantee that state persists identically across separate requests (dev-mode module reloads, cold starts, multiple instances). Don't rely on `MOCK_MODE` to test cross-request idempotency (e.g. repeated `source_batch_id` calls) here; that guarantee only actually holds against real Supabase (its `on conflict` unique index), which needs a live/staging project to verify.
 

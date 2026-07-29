@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2",
@@ -20,6 +21,8 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "typescript": "^5"
+    "@vitest/coverage-v8": "^2",
+    "typescript": "^5",
+    "vitest": "^2"
   }
 }

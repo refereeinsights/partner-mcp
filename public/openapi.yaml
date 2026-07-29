@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: TournamentInsights Intelligence API
   description: Data intelligence and partner monetization tools for TournamentInsights / RefereeInsights
-  version: 1.3.0
+  version: 1.4.0
 
 servers:
   - url: https://partnermcp-git-main-rod-davis-projects.vercel.app
@@ -88,6 +88,7 @@ paths:
                     - finalize_tournament_search_run
                     - get_search_organizer_intelligence
                     - insert_search_organizer_intelligence
+                    - insert_complete_search_package
 
                 sport:
                   type: string
@@ -569,6 +570,37 @@ paths:
                   items:
                     type: object
                     additionalProperties: true
+
+                run:
+                  type: object
+                  description: For insert_complete_search_package — search run fields (source_batch_id required, plus region_name, states, sports, dates, prompt, method, agent, model, searched_at, searched_by, organizer_domains, organizer_names, venue_names, high_value_sources, search_summary, unresolved_work, next_action, next_search_after, seasonality_conclusion).
+                  additionalProperties: true
+
+                scopes:
+                  type: array
+                  description: For insert_complete_search_package — array of scope objects, each with state and sport (min 1).
+                  items:
+                    type: object
+                    additionalProperties: true
+
+                organizer_intelligence:
+                  type: array
+                  description: For insert_complete_search_package — array of organizer intelligence objects (organizer_domain, confidence_level, and evidence_summary required per entry).
+                  items:
+                    type: object
+                    additionalProperties: true
+
+                finalize:
+                  type: boolean
+                  description: For insert_complete_search_package — if true (default), reconciles metrics and marks the run completed after inserting all records.
+
+                search_scope_index:
+                  type: integer
+                  description: For insert_complete_search_package findings — zero-based index into the scopes array, used to assign each finding to a scope.
+
+                seasonality_conclusion:
+                  type: string
+                  description: Freeform note on seasonal patterns observed during the search run.
 
       responses:
         "200":

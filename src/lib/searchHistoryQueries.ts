@@ -41,7 +41,9 @@ import type {
   TournamentSearchFinding,
   InsertSearchOrganizerIntelligenceInput,
   GetSearchOrganizerIntelligenceInput,
-  SearchOrganizerIntelligenceRow
+  SearchOrganizerIntelligenceRow,
+  InsertCompleteSearchPackageInput,
+  InsertCompleteSearchPackageOutput,
 } from "./searchHistorySchemas";
 
 // ---------------------------------------------------------------------------
@@ -1298,3 +1300,710 @@ export async function getSearchOrganizerIntelligence(
 }
 
 export { US_STATE_CODE_SET, supportedSportsSet };
+
+// ---------------------------------------------------------------------------
+// insert_complete_search_package
+// ---------------------------------------------------------------------------
+
+// Internal normalized shapes passed to the RPC / mock path.
+interface NormalizedRpcRun {
+  id: string;
+  source_batch_id: string;
+  region_name: string | null;
+  states: string[];
+  sports: string[];
+  date_from: string | null;
+  date_to: string | null;
+  search_prompt_version: string | null;
+  search_prompt_text: string | null;
+  search_prompt_hash: string | null;
+  search_prompt_truncated: boolean;
+  search_method: string | null;
+  research_agent: string | null;
+  research_model: string | null;
+  searched_at: string;
+  searched_by: string | null;
+  search_summary: string | null;
+  unresolved_work: string | null;
+  next_action: string | null;
+  next_search_after: string | null;
+  seasonality_conclusion: string | null;
+  organizer_domains: string[];
+  organizer_names: string[];
+  venue_names: string[];
+  high_value_sources: string[];
+}
+
+interface NormalizedRpcFinding {
+  _input_index: number;
+  resolved_scope_state: string;
+  resolved_scope_sport: string;
+  candidate_status: string;
+  tournament_name: string | null;
+  sport: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  state: string | null;
+  source_url: string | null;
+  venue_name: string | null;
+  venue_address: string | null;
+  venue_city: string | null;
+  venue_state: string | null;
+  venue_source_url: string | null;
+  existing_tournament_id: string | null;
+  organizer_name: string | null;
+  organizer_domain: string | null;
+  notes: string | null;
+  supersedes_finding_id: string | null;
+}
+
+interface NormalizedRpcOrgIntel {
+  organizer_name: string | null;
+  organizer_domain: string;
+  confidence_level: string;
+  evidence_summary: string;
+  states: string[];
+  sports: string[];
+  tournament_families: string[];
+  venue_clusters: string[];
+  monitoring_urls: string[];
+  recommended_cadence: string | null;
+  next_monitor_after: string | null;
+  registration_platform: string | null;
+  scheduling_platform: string | null;
+  notes: string | null;
+}
+
+interface NormalizedRpcPayload {
+  run: NormalizedRpcRun;
+  scopes: Array<{ state: string; sport: string }>;
+  findings: Array<Omit<NormalizedRpcFinding, "_input_index">>;
+  organizer_intelligence: NormalizedRpcOrgIntel[];
+  finalize: boolean;
+}
+
+// Detect markdown-formatted URLs like [text](https://...) before validateHttpUrl.
+function checkMarkdownUrl(value: string | undefined, fieldPath: string, errors: string[]): void {
+  if (!value) return;
+  if (/^\s*\[.*\]\(.*\)\s*$/.test(value.trim())) {
+    errors.push(
+      `${fieldPath}: markdown link detected — provide a raw URL (e.g. https://example.com), not [text](url) syntax`
+    );
+  }
+}
+
+// Resolve which package scope a finding belongs to.
+// Returns { resolvedState, resolvedSport } or null (and pushes to errors).
+function resolvePackageScopeForFinding(
+  finding: { search_scope_index?: number; state?: string; sport?: string },
+  normalizedScopes: Array<{ state: string; sport: string }>,
+  findingIndex: number,
+  errors: string[]
+): { resolvedState: string; resolvedSport: string } | null {
+  const { search_scope_index } = finding;
+
+  if (search_scope_index !== undefined) {
+    if (search_scope_index < 0 || search_scope_index >= normalizedScopes.length) {
+      errors.push(
+        `findings[${findingIndex}].search_scope_index: ${search_scope_index} is out of range (package has ${normalizedScopes.length} scope(s), valid indices 0–${normalizedScopes.length - 1})`
+      );
+      return null;
+    }
+    const s = normalizedScopes[search_scope_index];
+    return { resolvedState: s.state, resolvedSport: s.sport };
+  }
+
+  if (normalizedScopes.length === 1) {
+    return { resolvedState: normalizedScopes[0].state, resolvedSport: normalizedScopes[0].sport };
+  }
+
+  // Multi-scope: state+sport fallback
+  let ns: string | null = null;
+  let nsp: string | null = null;
+  try { if (finding.state) ns = normalizeAndValidateState(finding.state); } catch { /* caught below */ }
+  try { if (finding.sport) nsp = normalizeAndValidateSport(finding.sport); } catch { /* caught below */ }
+
+  if (!ns || !nsp) {
+    errors.push(
+      `findings[${findingIndex}]: multiple scopes in package — provide search_scope_index or include valid state and sport to auto-assign`
+    );
+    return null;
+  }
+
+  const matches = normalizedScopes.filter(s => s.state === ns && s.sport === nsp);
+  if (matches.length === 1) return { resolvedState: matches[0].state, resolvedSport: matches[0].sport };
+  if (matches.length === 0) {
+    errors.push(
+      `findings[${findingIndex}]: no package scope matches state="${ns}" sport="${nsp}" — add a matching scope or set search_scope_index`
+    );
+    return null;
+  }
+  errors.push(`findings[${findingIndex}]: ambiguous scope match for state="${ns}" sport="${nsp}" — use search_scope_index`);
+  return null;
+}
+
+// Compare two sorted string arrays for set equality.
+function sortedArraysEqual(a: string[], b: string[]): boolean {
+  const sa = [...a].sort();
+  const sb = [...b].sort();
+  return JSON.stringify(sa) === JSON.stringify(sb);
+}
+
+// Detect conflicts between incoming normalized run fields and a stored run.
+function detectRunConflicts(
+  incoming: NormalizedRpcRun,
+  stored: any
+): Array<{ path: string; stored_value: unknown; incoming_value: unknown }> {
+  const conflicts: Array<{ path: string; stored_value: unknown; incoming_value: unknown }> = [];
+
+  const strField = (path: string, inc: string | null, sto: string | null | undefined) => {
+    if (inc !== null && inc !== (sto ?? null)) {
+      conflicts.push({ path, stored_value: sto ?? null, incoming_value: inc });
+    }
+  };
+
+  strField("run.region_name", incoming.region_name, stored.region_name);
+  strField("run.date_from", incoming.date_from, stored.date_from);
+  strField("run.date_to", incoming.date_to, stored.date_to);
+  strField("run.search_method", incoming.search_method, stored.search_method);
+
+  if (incoming.states.length > 0 && !sortedArraysEqual(incoming.states, stored.states ?? [])) {
+    conflicts.push({ path: "run.states", stored_value: stored.states, incoming_value: incoming.states });
+  }
+  if (incoming.sports.length > 0 && !sortedArraysEqual(incoming.sports, stored.sports ?? [])) {
+    conflicts.push({ path: "run.sports", stored_value: stored.sports, incoming_value: incoming.sports });
+  }
+
+  return conflicts;
+}
+
+// Execute the complete package in mock mode (no DB required).
+function executeMockPackage(payload: NormalizedRpcPayload): InsertCompleteSearchPackageOutput {
+  const { run, scopes, findings, organizer_intelligence: orgIntelList, finalize } = payload;
+  const now = nowIso();
+
+  // 1. Run
+  const existingRun = mockRuns.find((r: any) => r.source_batch_id === run.source_batch_id);
+  let runId: string;
+  let packageStatus: "created" | "reused";
+
+  if (existingRun) {
+    const conflicts = detectRunConflicts(run, existingRun);
+    if (conflicts.length > 0) {
+      return { status: "conflict", search_run_id: existingRun.id, source_batch_id: run.source_batch_id, conflicts };
+    }
+    runId = existingRun.id;
+    packageStatus = "reused";
+  } else {
+    runId = run.id;
+    const runRow: any = {
+      id: runId,
+      region_name: run.region_name,
+      states: run.states,
+      sports: run.sports,
+      date_from: run.date_from,
+      date_to: run.date_to,
+      search_prompt_version: run.search_prompt_version,
+      search_prompt_text: run.search_prompt_text,
+      search_prompt_hash: run.search_prompt_hash,
+      search_prompt_truncated: run.search_prompt_truncated,
+      search_method: run.search_method,
+      research_agent: run.research_agent,
+      research_model: run.research_model,
+      searched_at: run.searched_at,
+      searched_by: run.searched_by,
+      status: "in_progress",
+      candidates_found: 0, qualified_rows: 0, needs_venue_verification: 0,
+      needs_address_verification: 0, needs_date_verification: 0,
+      duplicates_found: 0, out_of_scope_found: 0,
+      organizer_domains: run.organizer_domains,
+      organizer_names: run.organizer_names,
+      venue_names: run.venue_names,
+      high_value_sources: run.high_value_sources,
+      search_summary: run.search_summary,
+      unresolved_work: run.unresolved_work,
+      next_action: run.next_action,
+      next_search_after: run.next_search_after,
+      seasonality_conclusion: run.seasonality_conclusion,
+      source_batch_id: run.source_batch_id,
+      completed_at: null,
+      created_at: now,
+      updated_at: now,
+    };
+    mockRuns.push(runRow);
+    packageStatus = "created";
+  }
+
+  // 2. Scopes — insert or retrieve
+  const scopeResults: Array<{ input_index: number; search_scope_id: string; state: string; sport: string }> = [];
+  for (let i = 0; i < scopes.length; i++) {
+    const scope = scopes[i];
+    const existing = mockScopes.find(
+      (s: any) => s.search_run_id === runId && s.state === scope.state && s.sport === scope.sport
+    );
+    let scopeId: string;
+    if (existing) {
+      scopeId = existing.id;
+    } else {
+      scopeId = randomUUID();
+      mockScopes.push({
+        id: scopeId, search_run_id: runId, state: scope.state, sport: scope.sport,
+        candidates_found: 0, qualified_rows: 0, needs_venue_verification: 0,
+        needs_address_verification: 0, needs_date_verification: 0,
+        duplicates_found: 0, out_of_scope_found: 0, created_at: now,
+      });
+    }
+    scopeResults.push({ input_index: i, search_scope_id: scopeId, state: scope.state, sport: scope.sport });
+  }
+
+  const scopeIdLookup = new Map(scopeResults.map(sr => [`${sr.state}::${sr.sport}`, sr.search_scope_id]));
+
+  // 3. Validate supersessions
+  for (const f of findings) {
+    if (f.supersedes_finding_id) {
+      const prior = mockFindings.find((mf: any) => mf.id === f.supersedes_finding_id);
+      if (!prior) {
+        throw new SearchHistoryValidationError([
+          `findings[${(f as any)._input_index ?? "?"}].supersedes_finding_id: "${f.supersedes_finding_id}" does not exist`
+        ]);
+      }
+    }
+  }
+
+  // 4. Findings
+  let insertedFindings = 0;
+  let reusedFindings = 0;
+  let supersededFindings = 0;
+  const findingIds: string[] = [];
+
+  for (const f of findings) {
+    const scopeId = scopeIdLookup.get(`${f.resolved_scope_state}::${f.resolved_scope_sport}`) ?? null;
+    const dedupeKey = buildFindingDedupeKey({
+      search_run_id: runId,
+      tournament_name: f.tournament_name,
+      sport: f.sport,
+      start_date: f.start_date,
+      end_date: f.end_date,
+      venue_name: f.venue_name,
+      venue_state: f.venue_state,
+    });
+
+    const existingFinding = f.supersedes_finding_id
+      ? null
+      : mockFindings.find(
+          (mf: any) => mf.search_run_id === runId && mf.is_current && buildFindingDedupeKey(mf) === dedupeKey
+        ) ?? null;
+
+    if (existingFinding) {
+      reusedFindings++;
+      findingIds.push(existingFinding.id);
+    } else {
+      const findingId = randomUUID();
+      mockFindings.push({
+        id: findingId, search_run_id: runId, search_scope_id: scopeId,
+        is_current: true, created_at: now,
+        supersedes_finding_id: f.supersedes_finding_id ?? null,
+        candidate_status: f.candidate_status,
+        tournament_name: f.tournament_name, sport: f.sport,
+        start_date: f.start_date, end_date: f.end_date, state: f.state,
+        source_url: f.source_url, venue_name: f.venue_name,
+        venue_address: f.venue_address, venue_city: f.venue_city,
+        venue_state: f.venue_state, venue_source_url: f.venue_source_url,
+        existing_tournament_id: f.existing_tournament_id,
+        organizer_name: f.organizer_name, organizer_domain: f.organizer_domain,
+        notes: f.notes,
+      });
+      if (f.supersedes_finding_id) {
+        const prior: any = mockFindings.find((mf: any) => mf.id === f.supersedes_finding_id);
+        if (prior) prior.is_current = false;
+        supersededFindings++;
+      }
+      insertedFindings++;
+      findingIds.push(findingId);
+    }
+  }
+
+  // 5. Organizer intelligence — insert or reuse
+  let insertedIntel = 0;
+  let reusedIntel = 0;
+  const intelRecordIds: string[] = [];
+
+  for (const intel of orgIntelList) {
+    const existing = mockOrgIntel.find(
+      (r: any) => r.search_run_id === runId && r.organizer_domain === intel.organizer_domain
+    );
+    if (existing) {
+      reusedIntel++;
+      intelRecordIds.push(existing.id);
+    } else {
+      const intelId = randomUUID();
+      mockOrgIntel.push({ id: intelId, search_run_id: runId, ...intel, created_at: now });
+      insertedIntel++;
+      intelRecordIds.push(intelId);
+    }
+  }
+
+  // 6. Metrics from all current findings
+  const allCurrentFindings = mockFindings.filter(
+    (f: any) => f.search_run_id === runId && f.is_current
+  );
+  const runMetrics = countMetricsForFindings(allCurrentFindings);
+
+  for (const sr of scopeResults) {
+    const scopeFindings = allCurrentFindings.filter((f: any) => f.search_scope_id === sr.search_scope_id);
+    const scopeMetrics = countMetricsForFindings(scopeFindings);
+    const scope: any = mockScopes.find((s: any) => s.id === sr.search_scope_id);
+    if (scope) Object.assign(scope, scopeMetrics);
+  }
+
+  // 7. Finalize run
+  const mockRun: any = mockRuns.find((r: any) => r.id === runId);
+  const completedAt = finalize ? nowIso() : null;
+  Object.assign(mockRun, {
+    ...runMetrics,
+    status: finalize ? "completed" : mockRun.status,
+    completed_at: completedAt,
+    search_summary: run.search_summary ?? mockRun.search_summary,
+    unresolved_work: run.unresolved_work ?? mockRun.unresolved_work,
+    next_action: run.next_action ?? mockRun.next_action,
+    next_search_after: run.next_search_after ?? mockRun.next_search_after,
+    seasonality_conclusion: run.seasonality_conclusion ?? mockRun.seasonality_conclusion,
+    updated_at: nowIso(),
+  });
+
+  return {
+    status: packageStatus,
+    search_run_id: runId,
+    source_batch_id: run.source_batch_id,
+    scope_results: scopeResults,
+    finding_results: { inserted: insertedFindings, reused: reusedFindings, superseded: supersededFindings, finding_ids: findingIds },
+    organizer_intelligence_results: { inserted: insertedIntel, reused: reusedIntel, record_ids: intelRecordIds },
+    metrics: runMetrics,
+    finalized: finalize,
+    completed_at: completedAt,
+  };
+}
+
+export async function insertCompleteSearchPackage(
+  input: InsertCompleteSearchPackageInput
+): Promise<InsertCompleteSearchPackageOutput> {
+  assertSearchHistoryWritesEnabled();
+
+  const validationErrors: string[] = [];
+
+  // -------------------------------------------------------------------------
+  // Normalize run fields
+  // -------------------------------------------------------------------------
+  let normalizedStates: string[] = [];
+  let normalizedSports: string[] = [];
+  try { normalizedStates = normalizeStatesArray(input.run.states ?? []); }
+  catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(i => validationErrors.push(`run.states: ${i}`)); }
+
+  try { normalizedSports = normalizeSportsArray(input.run.sports ?? []); }
+  catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(i => validationErrors.push(`run.sports: ${i}`)); }
+
+  if (input.run.date_from) {
+    try { validateIsoDate(input.run.date_from, "date_from"); }
+    catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(i => validationErrors.push(`run.${i}`)); }
+  }
+  if (input.run.date_to) {
+    try { validateIsoDate(input.run.date_to, "date_to"); }
+    catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(i => validationErrors.push(`run.${i}`)); }
+  }
+  if (input.run.date_from && input.run.date_to && input.run.date_from > input.run.date_to) {
+    validationErrors.push("run: date_from must not be after date_to");
+  }
+  if (input.run.searched_at) {
+    try { validateIsoDate(input.run.searched_at.slice(0, 10), "searched_at"); }
+    catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(i => validationErrors.push(`run.${i}`)); }
+  }
+  if (input.run.next_search_after) {
+    try { validateIsoDate(input.run.next_search_after, "next_search_after"); }
+    catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(i => validationErrors.push(`run.${i}`)); }
+  }
+
+  let normalizedOrganizerDomains: string[] = [];
+  try { normalizedOrganizerDomains = normalizeOrganizerDomainsArray(input.run.organizer_domains); }
+  catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(i => validationErrors.push(`run.organizer_domains: ${i}`)); }
+
+  const normalizedHighValueSources: (string | null)[] = [];
+  for (let j = 0; j < (input.run.high_value_sources ?? []).length; j++) {
+    const u = input.run.high_value_sources![j];
+    checkMarkdownUrl(u, `run.high_value_sources[${j}]`, validationErrors);
+    try { normalizedHighValueSources.push(validateHttpUrl(u, `run.high_value_sources[${j}]`)); }
+    catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(i => validationErrors.push(i)); normalizedHighValueSources.push(null); }
+  }
+
+  let searchPromptText: string | null = null;
+  let searchPromptHash: string | null = input.run.search_prompt_hash ?? null;
+  let searchPromptTruncated = false;
+  if (input.run.search_prompt_text) {
+    searchPromptHash = hashPrompt(input.run.search_prompt_text);
+    const { stored, truncated } = truncatePromptForStorage(input.run.search_prompt_text);
+    searchPromptText = stored;
+    searchPromptTruncated = truncated;
+  }
+
+  // -------------------------------------------------------------------------
+  // Normalize scopes + detect duplicates
+  // -------------------------------------------------------------------------
+  const normalizedScopes: Array<{ state: string; sport: string }> = [];
+  const seenScopePairs = new Map<string, number>();
+
+  for (let i = 0; i < input.scopes.length; i++) {
+    const scope = input.scopes[i];
+    let state = "";
+    let sport = "";
+    let scopeOk = true;
+    try { state = normalizeAndValidateState(scope.state); }
+    catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(issue => validationErrors.push(`scopes[${i}].state: ${issue}`)); scopeOk = false; }
+    try { sport = normalizeAndValidateSport(scope.sport); }
+    catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(issue => validationErrors.push(`scopes[${i}].sport: ${issue}`)); scopeOk = false; }
+
+    if (scopeOk) {
+      const key = `${state}::${sport}`;
+      if (seenScopePairs.has(key)) {
+        validationErrors.push(
+          `scopes[${i}] and scopes[${seenScopePairs.get(key)}] normalize to the same (${state}, ${sport}) pair — remove the duplicate`
+        );
+      } else {
+        seenScopePairs.set(key, i);
+        normalizedScopes.push({ state, sport });
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Normalize findings + resolve scope
+  // -------------------------------------------------------------------------
+  const normalizedFindings: NormalizedRpcFinding[] = [];
+
+  for (let i = 0; i < (input.findings ?? []).length; i++) {
+    const f = input.findings[i];
+
+    checkMarkdownUrl(f.source_url, `findings[${i}].source_url`, validationErrors);
+    checkMarkdownUrl(f.venue_source_url, `findings[${i}].venue_source_url`, validationErrors);
+
+    let normalized: any = null;
+    try {
+      normalized = validateAndNormalizeFinding({
+        search_run_id: "package_validation_placeholder",
+        search_scope_id: undefined,
+        supersedes_finding_id: f.supersedes_finding_id,
+        candidate_status: f.candidate_status,
+        tournament_name: f.tournament_name,
+        sport: f.sport,
+        start_date: f.start_date,
+        end_date: f.end_date,
+        state: f.state,
+        source_url: f.source_url,
+        venue_name: f.venue_name,
+        venue_address: f.venue_address,
+        venue_city: f.venue_city,
+        venue_state: f.venue_state,
+        venue_source_url: f.venue_source_url,
+        existing_tournament_id: f.existing_tournament_id,
+        organizer_name: f.organizer_name,
+        organizer_domain: f.organizer_domain,
+        notes: f.notes,
+      } as any);
+    } catch (e) {
+      if (e instanceof SearchHistoryValidationError) {
+        e.issues.forEach(issue => validationErrors.push(`findings[${i}]: ${issue}`));
+      } else throw e;
+    }
+
+    const resolvedScope = normalizedScopes.length > 0
+      ? resolvePackageScopeForFinding(f, normalizedScopes, i, validationErrors)
+      : null;
+
+    if (normalized && resolvedScope) {
+      normalizedFindings.push({
+        _input_index: i,
+        resolved_scope_state: resolvedScope.resolvedState,
+        resolved_scope_sport: resolvedScope.resolvedSport,
+        candidate_status: normalized.candidate_status,
+        tournament_name: normalized.tournament_name,
+        sport: normalized.sport,
+        start_date: normalized.start_date,
+        end_date: normalized.end_date,
+        state: normalized.state,
+        source_url: normalized.source_url,
+        venue_name: normalized.venue_name,
+        venue_address: normalized.venue_address,
+        venue_city: normalized.venue_city,
+        venue_state: normalized.venue_state,
+        venue_source_url: normalized.venue_source_url,
+        existing_tournament_id: normalized.existing_tournament_id,
+        organizer_name: normalized.organizer_name,
+        organizer_domain: normalized.organizer_domain,
+        notes: normalized.notes,
+        supersedes_finding_id: normalized.supersedes_finding_id,
+      });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Normalize organizer intelligence
+  // -------------------------------------------------------------------------
+  const normalizedOrgIntel: NormalizedRpcOrgIntel[] = [];
+
+  for (let i = 0; i < (input.organizer_intelligence ?? []).length; i++) {
+    const intel = input.organizer_intelligence[i];
+    let domain = "";
+    try { domain = normalizeOrganizerDomain(intel.organizer_domain); }
+    catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(issue => validationErrors.push(`organizer_intelligence[${i}].organizer_domain: ${issue}`)); }
+
+    if (!intel.evidence_summary?.trim()) {
+      validationErrors.push(`organizer_intelligence[${i}].evidence_summary: required and must not be empty`);
+    }
+
+    let intelStates: string[] = [];
+    try { intelStates = normalizeStatesArray(intel.states ?? []); }
+    catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(issue => validationErrors.push(`organizer_intelligence[${i}].states: ${issue}`)); }
+
+    let intelSports: string[] = [];
+    try { intelSports = normalizeSportsArray(intel.sports ?? []); }
+    catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(issue => validationErrors.push(`organizer_intelligence[${i}].sports: ${issue}`)); }
+
+    let intelMonitoringUrls: string[] = [];
+    for (let j = 0; j < (intel.monitoring_urls ?? []).length; j++) {
+      checkMarkdownUrl(intel.monitoring_urls![j], `organizer_intelligence[${i}].monitoring_urls[${j}]`, validationErrors);
+    }
+    try { intelMonitoringUrls = normalizeMonitoringUrlsArray(intel.monitoring_urls); }
+    catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(issue => validationErrors.push(`organizer_intelligence[${i}].monitoring_urls: ${issue}`)); }
+
+    if (intel.next_monitor_after) {
+      try { validateIsoDate(intel.next_monitor_after, "next_monitor_after"); }
+      catch (e) { if (e instanceof SearchHistoryValidationError) e.issues.forEach(issue => validationErrors.push(`organizer_intelligence[${i}].${issue}`)); }
+    }
+
+    if (domain) {
+      normalizedOrgIntel.push({
+        organizer_name: intel.organizer_name?.trim() ?? null,
+        organizer_domain: domain,
+        confidence_level: intel.confidence_level,
+        evidence_summary: intel.evidence_summary?.trim() ?? "",
+        states: intelStates,
+        sports: intelSports,
+        tournament_families: dedupeCaseInsensitiveArray(
+          (intel.tournament_families ?? []).map(s => s.trim()).filter(Boolean)
+        ),
+        venue_clusters: dedupeCaseInsensitiveArray(
+          (intel.venue_clusters ?? []).map(s => s.trim()).filter(Boolean)
+        ),
+        monitoring_urls: intelMonitoringUrls,
+        recommended_cadence: intel.recommended_cadence?.trim() ?? null,
+        next_monitor_after: intel.next_monitor_after ?? null,
+        registration_platform: intel.registration_platform?.trim() ?? null,
+        scheduling_platform: intel.scheduling_platform?.trim() ?? null,
+        notes: intel.notes ?? null,
+      });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Fail if any validation errors
+  // -------------------------------------------------------------------------
+  if (validationErrors.length > 0) {
+    throw new SearchHistoryValidationError(validationErrors);
+  }
+
+  // -------------------------------------------------------------------------
+  // Build normalized payload
+  // -------------------------------------------------------------------------
+  const normalizedRun: NormalizedRpcRun = {
+    id: randomUUID(),
+    source_batch_id: input.run.source_batch_id,
+    region_name: input.run.region_name?.trim() ?? null,
+    states: normalizedStates,
+    sports: normalizedSports,
+    date_from: input.run.date_from ?? null,
+    date_to: input.run.date_to ?? null,
+    search_prompt_version: input.run.search_prompt_version ?? null,
+    search_prompt_text: searchPromptText,
+    search_prompt_hash: searchPromptHash,
+    search_prompt_truncated: searchPromptTruncated,
+    search_method: input.run.search_method ?? null,
+    research_agent: input.run.research_agent ?? null,
+    research_model: input.run.research_model ?? null,
+    searched_at: input.run.searched_at ?? nowIso(),
+    searched_by: input.run.searched_by ?? null,
+    search_summary: input.run.search_summary ?? null,
+    unresolved_work: input.run.unresolved_work ?? null,
+    next_action: input.run.next_action ?? null,
+    next_search_after: input.run.next_search_after ?? null,
+    seasonality_conclusion: input.run.seasonality_conclusion ?? null,
+    organizer_domains: normalizedOrganizerDomains,
+    organizer_names: Array.from(new Set((input.run.organizer_names ?? []).map(s => s.trim()))),
+    venue_names: Array.from(new Set((input.run.venue_names ?? []).map(s => s.trim()))),
+    high_value_sources: normalizedHighValueSources.filter((u): u is string => u !== null),
+  };
+
+  const normalizedPayload: NormalizedRpcPayload = {
+    run: normalizedRun,
+    scopes: normalizedScopes,
+    findings: normalizedFindings.map(({ _input_index, ...rest }) => rest),
+    organizer_intelligence: normalizedOrgIntel,
+    finalize: input.finalize ?? true,
+  };
+
+  // Store input indices separately for error reporting in mock path
+  const findingsWithIndices = normalizedFindings;
+
+  // -------------------------------------------------------------------------
+  // Execute: mock path
+  // -------------------------------------------------------------------------
+  if (mockMode()) {
+    // Attach _input_index to findings for supersession error reporting in mock
+    const mockPayload = {
+      ...normalizedPayload,
+      findings: findingsWithIndices.map(({ _input_index, ...rest }) => ({ ...rest, _input_index })),
+    };
+    return executeMockPackage(mockPayload as any);
+  }
+
+  // -------------------------------------------------------------------------
+  // Pre-validate supersedes_finding_id references (real mode)
+  // -------------------------------------------------------------------------
+  const supabase = getSupabaseAdmin();
+  const supersessionErrors: string[] = [];
+  for (const f of findingsWithIndices) {
+    if (f.supersedes_finding_id) {
+      const { data: spData } = await supabase
+        .from("tournament_search_run_findings")
+        .select("id")
+        .eq("id", f.supersedes_finding_id)
+        .maybeSingle();
+      if (!spData) {
+        supersessionErrors.push(
+          `findings[${f._input_index}].supersedes_finding_id: "${f.supersedes_finding_id}" does not exist`
+        );
+      }
+    }
+  }
+  if (supersessionErrors.length > 0) {
+    throw new SearchHistoryValidationError(supersessionErrors);
+  }
+
+  // -------------------------------------------------------------------------
+  // Execute: RPC path
+  // -------------------------------------------------------------------------
+  const { data: rpcData, error: rpcError } = await supabase.rpc(
+    "insert_complete_search_package_rpc",
+    { payload: normalizedPayload }
+  );
+
+  if (rpcError) {
+    if (rpcError.message?.includes("insert_complete_search_package_rpc")) {
+      throw new Error(
+        "insert_complete_search_package_rpc is not deployed. " +
+        "Apply src/db/sql/tournament_search_runs_seasonality_conclusion_v1.sql " +
+        "then src/db/sql/insert_complete_search_package_rpc_v1.sql to the Supabase project."
+      );
+    }
+    throw new Error(rpcError.message);
+  }
+
+  return rpcData as InsertCompleteSearchPackageOutput;
+}

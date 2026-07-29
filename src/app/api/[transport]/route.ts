@@ -44,6 +44,7 @@ import { registerInsertTournamentSearchFinding } from "../../../tools/insertTour
 import { registerInsertTournamentSearchFindings } from "../../../tools/insertTournamentSearchFindings";
 import { registerFinalizeTournamentSearchRun } from "../../../tools/finalizeTournamentSearchRun";
 import { registerInsertSearchOrganizerIntelligence } from "../../../tools/insertSearchOrganizerIntelligence";
+import { registerInsertCompleteSearchPackage } from "../../../tools/insertCompleteSearchPackage";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -135,6 +136,7 @@ const mcpHandler = createMcpHandler(
       registerInsertTournamentSearchFindings(server);
       registerFinalizeTournamentSearchRun(server);
       registerInsertSearchOrganizerIntelligence(server);
+      registerInsertCompleteSearchPackage(server);
     }
 
     registerListTools(server);
