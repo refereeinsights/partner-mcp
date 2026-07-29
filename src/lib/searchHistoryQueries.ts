@@ -1995,14 +1995,17 @@ export async function insertCompleteSearchPackage(
   );
 
   if (rpcError) {
-    if (rpcError.message?.includes("insert_complete_search_package_rpc")) {
+    if (
+      rpcError.message?.includes("does not exist") &&
+      rpcError.message?.includes("insert_complete_search_package_rpc")
+    ) {
       throw new Error(
         "insert_complete_search_package_rpc is not deployed. " +
         "Apply src/db/sql/tournament_search_runs_seasonality_conclusion_v1.sql " +
         "then src/db/sql/insert_complete_search_package_rpc_v1.sql to the Supabase project."
       );
     }
-    throw new Error(rpcError.message);
+    throw new Error(`RPC error (${rpcError.code ?? "unknown"}): ${rpcError.message}`);
   }
 
   return rpcData as InsertCompleteSearchPackageOutput;
