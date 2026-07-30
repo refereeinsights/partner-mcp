@@ -1105,6 +1105,40 @@ export async function getTournaments(filters: {
   return { data: results, total: count ?? results.length };
 }
 
+export async function findProductionMatches(
+  candidates: Array<{
+    candidate_index?: number;
+    name?: string;
+    sport?: string;
+    state?: string;
+    start_date_from?: string;
+    start_date_to?: string;
+    organizer_domain?: string;
+  }>,
+  maxMatchesPerCandidate: number
+): Promise<{ results: Array<{ candidate_index: number; matches: any[]; match_count: number }> }> {
+  const results = await Promise.all(
+    candidates.map(async (c, i) => {
+      const { data } = await getTournaments({
+        name: c.name,
+        sport: c.sport,
+        state: c.state,
+        start_date_from: c.start_date_from,
+        start_date_to: c.start_date_to,
+        organizer_domain: c.organizer_domain,
+        limit: maxMatchesPerCandidate,
+        offset: 0,
+      });
+      return {
+        candidate_index: c.candidate_index ?? i,
+        matches: data,
+        match_count: data.length,
+      };
+    })
+  );
+  return { results };
+}
+
 async function trySelectTournamentsWithFallback(selectCols: string[], builder: (q: any) => any) {
   const supabase = getSupabaseClient();
   let columns = [...selectCols];

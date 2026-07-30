@@ -90,6 +90,7 @@ paths:
                     - insert_search_organizer_intelligence
                     - insert_complete_search_package
                     - get_tournaments
+                    - find_production_matches
 
                 sport:
                   type: string
@@ -137,6 +138,17 @@ paths:
                     - complete
                     - any
                   description: Venue completeness filter.
+
+                candidates:
+                  type: array
+                  description: Array of candidate descriptors for find_production_matches (min 1, max 25). Each item may include name, sport, state, start_date_from, start_date_to, organizer_domain, candidate_index.
+                  items:
+                    type: object
+                    additionalProperties: true
+
+                max_matches_per_candidate:
+                  type: integer
+                  description: Maximum production matches to return per candidate in find_production_matches (max 10, default 5).
 
                 start_date_from:
                   type: string

@@ -32,8 +32,8 @@ import { insertPartnerNote } from "../../../tools/insertPartnerNote";
 import { updatePartnerStatus } from "../../../tools/updatePartnerStatus";
 import { upsertPartnerPlacement } from "../../../tools/upsertPartnerPlacement";
 import { insertPartnerTestResult } from "../../../tools/insertPartnerTestResult";
-import { getTournaments } from "../../../lib/queries";
-import { getTournamentsInput } from "../../../lib/schemas";
+import { getTournaments, findProductionMatches } from "../../../lib/queries";
+import { getTournamentsInput, findProductionMatchesInput } from "../../../lib/schemas";
 import {
   getSearchRuns,
   getSearchRunFindings,
@@ -180,6 +180,12 @@ export async function POST(request: Request) {
       case "get_tournaments":
         result = await getTournaments(getTournamentsInput.parse(params));
         break;
+
+      case "find_production_matches": {
+        const args = findProductionMatchesInput.parse(params);
+        result = await findProductionMatches(args.candidates, args.max_matches_per_candidate);
+        break;
+      }
 
       case "get_tournaments_by_domain":
         result = await getTournamentsByDomain(params as any);

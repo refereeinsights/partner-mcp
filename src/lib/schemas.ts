@@ -366,6 +366,29 @@ export const getTournamentsOutput = z.object({
 });
 export const getTournamentsToolOutput = getTournamentsOutput;
 
+const findProductionMatchesCandidateInput = z.object({
+  candidate_index: z.number().int().nonnegative().optional(),
+  name: z.string().optional(),
+  sport: z.string().optional(),
+  state: z.string().optional(),
+  start_date_from: z.string().optional(),
+  start_date_to: z.string().optional(),
+  organizer_domain: z.string().optional(),
+});
+
+export const findProductionMatchesInput = z.object({
+  candidates: z.array(findProductionMatchesCandidateInput).min(1).max(25),
+  max_matches_per_candidate: z.number().int().positive().max(10).optional().default(5),
+});
+
+export const findProductionMatchesOutput = z.object({
+  results: z.array(z.object({
+    candidate_index: z.number(),
+    matches: z.array(tournamentRowSchema),
+    match_count: z.number(),
+  })),
+});
+
 export const getUnverifiedTournamentsInput = z.object({
   sport: sportSchema.optional(),
   state: stateSchema.optional(),
