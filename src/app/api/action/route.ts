@@ -32,6 +32,8 @@ import { insertPartnerNote } from "../../../tools/insertPartnerNote";
 import { updatePartnerStatus } from "../../../tools/updatePartnerStatus";
 import { upsertPartnerPlacement } from "../../../tools/upsertPartnerPlacement";
 import { insertPartnerTestResult } from "../../../tools/insertPartnerTestResult";
+import { getTournaments } from "../../../lib/queries";
+import { getTournamentsInput } from "../../../lib/schemas";
 import {
   getSearchRuns,
   getSearchRunFindings,
@@ -173,6 +175,10 @@ export async function POST(request: Request) {
 
       case "get_top_organizer_domains":
         result = await getTopOrganizerDomains(params as any);
+        break;
+
+      case "get_tournaments":
+        result = await getTournaments(getTournamentsInput.parse(params));
         break;
 
       case "get_tournaments_by_domain":

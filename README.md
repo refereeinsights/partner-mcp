@@ -27,6 +27,7 @@ Deployed: `https://<vercel-project-domain>/api/mcp`
 | `get_organizer_clusters` | Group tournaments by host org or inferred domain. |
 | `get_venue_clusters` | Venues used by multiple tournaments. |
 | `get_top_organizer_domains` | Root domains most frequently appearing as tournament websites. |
+| `get_tournaments` | Search production tournaments by name, sport, state, date range, or organizer domain. Use for duplicate detection before inserting a candidate. Returns up to 100 rows with full tournament fields; supports `offset` pagination. |
 | `get_tournaments_by_domain` | All tournaments whose website matches a given domain. |
 | `get_state_sport_coverage` | Tournament counts by state × sport combination. |
 | `get_dataset_health` | Overall data quality metrics (% missing website, email, dates). |

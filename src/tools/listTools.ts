@@ -16,6 +16,7 @@ export const TOOLS = [
   { name: "get_missing_venues", category: "tournament_discovery", access: "read", description: "Tournaments with no linked venue." },
   { name: "get_tournament_venue_worklist", category: "tournament_discovery", access: "read", description: "Tournaments needing venue work, scored by proximity and data completeness." },
   { name: "get_unverified_tournaments", category: "tournament_discovery", access: "read", description: "Unverified tournaments. Returns id, name, slug, sport, city, state, address, zip, dates, website, contact fields." },
+  { name: "get_tournaments", category: "tournament_discovery", access: "read", description: "Search production tournaments by name, sport, state, date range, or organizer domain. Use to detect duplicates before inserting a candidate." },
   { name: "get_tournaments_by_domain", category: "tournament_discovery", access: "read", description: "Tournaments whose official_website_url matches a root domain. Returns slug, address, zip." },
   { name: "get_tournaments_missing_source_urls", category: "tournament_discovery", access: "read", description: "Tournaments with no source URL. Returns slug, address, zip." },
   { name: "get_top_organizer_domains", category: "tournament_discovery", access: "read", description: "Organizer domains ranked by tournament count." },

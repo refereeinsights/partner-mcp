@@ -349,6 +349,23 @@ export const getTournamentsByDomainInput = z.object({
 export const getTournamentsByDomainOutput = z.array(tournamentRowSchema);
 export const getTournamentsByDomainToolOutput = z.object({ data: getTournamentsByDomainOutput });
 
+export const getTournamentsInput = z.object({
+  name: z.string().optional(),
+  sport: sportSchema.optional(),
+  state: stateSchema.optional(),
+  start_date_from: z.string().optional(),
+  start_date_to: z.string().optional(),
+  organizer_domain: z.string().optional(),
+  limit: z.number().int().positive().max(100).optional().default(25),
+  offset: z.number().int().nonnegative().optional().default(0),
+});
+
+export const getTournamentsOutput = z.object({
+  data: z.array(tournamentRowSchema),
+  total: z.number(),
+});
+export const getTournamentsToolOutput = getTournamentsOutput;
+
 export const getUnverifiedTournamentsInput = z.object({
   sport: sportSchema.optional(),
   state: stateSchema.optional(),

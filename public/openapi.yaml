@@ -89,6 +89,7 @@ paths:
                     - get_search_organizer_intelligence
                     - insert_search_organizer_intelligence
                     - insert_complete_search_package
+                    - get_tournaments
 
                 sport:
                   type: string
@@ -136,6 +137,14 @@ paths:
                     - complete
                     - any
                   description: Venue completeness filter.
+
+                start_date_from:
+                  type: string
+                  description: Filter tournaments with start_date on or after this date, YYYY-MM-DD.
+
+                start_date_to:
+                  type: string
+                  description: Filter tournaments with start_date on or before this date, YYYY-MM-DD.
 
                 date_from:
                   type: string

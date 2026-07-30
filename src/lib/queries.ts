@@ -1045,6 +1045,66 @@ export async function getTournamentsByDomain(filters: {
   return (data || []).filter((row: any) => matchesDomain(row.official_website_url));
 }
 
+export async function getTournaments(filters: {
+  name?: string;
+  sport?: string;
+  state?: string;
+  start_date_from?: string;
+  start_date_to?: string;
+  organizer_domain?: string;
+  limit: number;
+  offset: number;
+}): Promise<{ data: any[]; total: number }> {
+  if (mockMode()) {
+    let results = [...MOCK_TOURNAMENTS] as any[];
+    if (filters.name) {
+      const q = filters.name.toLowerCase();
+      results = results.filter((t) => t.name?.toLowerCase().includes(q));
+    }
+    if (filters.sport) results = results.filter((t) => t.sport === filters.sport);
+    if (filters.state) results = results.filter((t) => t.state === filters.state);
+    return { data: results.slice(filters.offset, filters.offset + filters.limit), total: results.length };
+  }
+
+  const cols = [
+    "id", "name", "slug", "sport", "city", "state", "address", "zip",
+    "start_date", "end_date", "official_website_url",
+    "tournament_director", "tournament_director_email",
+    "referee_contact", "referee_contact_email",
+  ];
+
+  const supabase = getSupabaseClient();
+  let query = supabase.from("tournaments").select(cols.join(","), { count: "exact" });
+
+  if (filters.name) query = query.ilike("name", `%${filters.name}%`);
+  if (filters.sport) query = query.eq("sport", filters.sport);
+  if (filters.state) query = query.eq("state", filters.state);
+  if (filters.start_date_from) query = query.gte("start_date", filters.start_date_from);
+  if (filters.start_date_to) query = query.lte("start_date", filters.start_date_to);
+  if (filters.organizer_domain) {
+    const want = rootDomain(filters.organizer_domain);
+    query = query.ilike("official_website_url", `%${want}%`);
+  }
+
+  query = query
+    .order("start_date", { ascending: true, nullsFirst: false })
+    .range(filters.offset, filters.offset + filters.limit - 1);
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+
+  let results = data || [];
+  if (filters.organizer_domain) {
+    const want = rootDomain(filters.organizer_domain);
+    results = results.filter((r: any) => {
+      const host = r.official_website_url ? extractHostname(r.official_website_url) : null;
+      return host ? rootDomain(host) === want : false;
+    });
+  }
+
+  return { data: results, total: count ?? results.length };
+}
+
 async function trySelectTournamentsWithFallback(selectCols: string[], builder: (q: any) => any) {
   const supabase = getSupabaseClient();
   let columns = [...selectCols];

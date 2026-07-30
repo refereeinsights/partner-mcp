@@ -45,6 +45,7 @@ import { registerInsertTournamentSearchFindings } from "../../../tools/insertTou
 import { registerFinalizeTournamentSearchRun } from "../../../tools/finalizeTournamentSearchRun";
 import { registerInsertSearchOrganizerIntelligence } from "../../../tools/insertSearchOrganizerIntelligence";
 import { registerInsertCompleteSearchPackage } from "../../../tools/insertCompleteSearchPackage";
+import { registerGetTournaments } from "../../../tools/getTournaments";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -99,6 +100,7 @@ const mcpHandler = createMcpHandler(
     registerGetStateSportCoverage(server);
     registerGetSummaryDashboard(server);
     registerGetTopOrganizerDomains(server);
+    registerGetTournaments(server);
     registerGetTournamentsByDomain(server);
     registerGetTournamentsMissingSourceUrls(server);
     registerGetTrends(server);
