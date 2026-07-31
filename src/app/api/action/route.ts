@@ -182,7 +182,14 @@ export async function POST(request: Request) {
         break;
 
       case "find_production_matches": {
-        const args = findProductionMatchesInput.parse(params);
+        const rawCandidates =
+          typeof (params as any).candidates_json === "string"
+            ? JSON.parse((params as any).candidates_json)
+            : (params as any).candidates;
+        const args = findProductionMatchesInput.parse({
+          candidates: rawCandidates,
+          max_matches_per_candidate: (params as any).max_matches_per_candidate,
+        });
         result = await findProductionMatches(args.candidates, args.max_matches_per_candidate);
         break;
       }

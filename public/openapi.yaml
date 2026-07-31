@@ -139,12 +139,9 @@ paths:
                     - any
                   description: Venue completeness filter.
 
-                candidates:
-                  type: array
-                  description: Array of candidate descriptors for find_production_matches (min 1, max 25). Each item may include name, sport, state, start_date_from, start_date_to, organizer_domain, candidate_index.
-                  items:
-                    type: object
-                    additionalProperties: true
+                candidates_json:
+                  type: string
+                  description: JSON array string of candidate descriptors for find_production_matches (min 1, max 25). Each item may include candidate_index (integer), name, sport, state, start_date_from, start_date_to, organizer_domain. Example: '[{"candidate_index":0,"name":"Cal Cup","sport":"soccer","state":"CA"}]'
 
                 max_matches_per_candidate:
                   type: integer
