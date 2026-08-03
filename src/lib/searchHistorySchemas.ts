@@ -50,7 +50,7 @@ export const insertTournamentSearchRunInput = z.object({
   search_prompt_text: z.string().optional(),
   search_prompt_hash: z.string().optional(),
 
-  search_method: z.string().trim().max(200).optional(),
+  search_method: z.string().trim().max(1000).optional(),
   research_agent: z.string().trim().max(200).optional(),
   research_model: z.string().trim().max(200).optional(),
 
@@ -486,7 +486,7 @@ const insertCompleteSearchPackageRunInput = z.object({
   search_prompt_version: z.string().trim().max(100).optional(),
   search_prompt_text: z.string().optional(),
   search_prompt_hash: z.string().optional(),
-  search_method: z.string().trim().max(200).optional(),
+  search_method: z.string().trim().max(1000).optional(),
   research_agent: z.string().trim().max(200).optional(),
   research_model: z.string().trim().max(200).optional(),
   searched_at: z.string().optional(),
