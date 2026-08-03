@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest"
+    "test": "vitest",
+    "validate": "npx js-yaml public/openapi.yaml > /dev/null && npx tsc --noEmit && echo \"✓ YAML and TypeScript OK\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2",
@@ -18,10 +19,12 @@
     "zod": "^3"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^2",
+    "js-yaml": "^5.2.3",
     "typescript": "^5",
     "vitest": "^2"
   }
