@@ -141,7 +141,7 @@ paths:
 
                 candidates_json:
                   type: string
-                  description: JSON array string of candidate descriptors for find_production_matches (min 1, max 25). Each item may include candidate_index (integer), name, sport, state, start_date_from, start_date_to, organizer_domain. Example: '[{"candidate_index":0,"name":"Cal Cup","sport":"soccer","state":"CA"}]'
+                  description: "JSON array string of candidate descriptors for find_production_matches (min 1, max 25). Each item may include candidate_index (integer), name, sport, state, start_date_from, start_date_to, organizer_domain. Example: [{\"candidate_index\":0,\"name\":\"Cal Cup\",\"sport\":\"soccer\",\"state\":\"CA\"}]"
 
                 max_matches_per_candidate:
                   type: integer
@@ -495,10 +495,6 @@ paths:
                 evidence_summary:
                   type: string
                   description: Summary of the evidence supporting the organizer intelligence. Required for all confidence levels.
-
-                organizer_name:
-                  type: string
-                  description: Display name of the organizer (e.g. "NCS Southwest Arizona / Bruno Cafarelli").
 
                 tournament_families:
                   type: array
