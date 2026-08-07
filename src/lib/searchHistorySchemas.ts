@@ -67,9 +67,9 @@ export const insertTournamentSearchRunInput = z.object({
   venue_names: z.array(z.string().trim().min(1)).optional().default([]),
   high_value_sources: z.array(z.string()).optional().default([]),
 
-  search_summary: z.string().max(20000).optional(),
-  unresolved_work: z.string().max(20000).optional(),
-  next_action: z.string().max(20000).optional(),
+  search_summary: z.string().max(5000).optional(),
+  unresolved_work: z.string().max(5000).optional(),
+  next_action: z.string().max(5000).optional(),
   next_search_after: z.string().optional(),
 
   source_batch_id: z.string().trim().min(1).max(300).optional()
@@ -231,9 +231,9 @@ export const finalizeTournamentSearchRunInput = z.object({
   search_run_id: z.string().min(1),
   status: z.enum(["completed", "needs_follow_up"]).optional(),
   completed_at: z.string().optional(),
-  search_summary: z.string().max(20000).optional(),
-  unresolved_work: z.string().max(20000).optional(),
-  next_action: z.string().max(20000).optional(),
+  search_summary: z.string().max(5000).optional(),
+  unresolved_work: z.string().max(5000).optional(),
+  next_action: z.string().max(5000).optional(),
   next_search_after: z.string().optional()
 });
 
@@ -398,7 +398,7 @@ export const insertSearchOrganizerIntelligenceInput = z.object({
   organizer_name: z.string().trim().max(300).optional(),
   organizer_domain: z.string().min(1),
   confidence_level: orgIntelConfidenceLevelEnum,
-  evidence_summary: z.string().max(10000).optional(),
+  evidence_summary: z.string().max(3000).optional(),
   states: z.array(z.string()).optional().default([]),
   sports: z.array(z.string()).optional().default([]),
   tournament_families: z.array(z.string()).optional().default([]),
@@ -408,7 +408,7 @@ export const insertSearchOrganizerIntelligenceInput = z.object({
   next_monitor_after: z.string().optional(),
   registration_platform: z.string().trim().max(200).optional(),
   scheduling_platform: z.string().trim().max(200).optional(),
-  notes: z.string().max(10000).optional()
+  notes: z.string().max(3000).optional()
 });
 
 export const searchOrganizerIntelligenceRowSchema = z.object({
@@ -491,9 +491,9 @@ const insertCompleteSearchPackageRunInput = z.object({
   research_model: z.string().trim().max(200).optional(),
   searched_at: z.string().optional(),
   searched_by: z.string().trim().max(200).optional(),
-  search_summary: z.string().max(20000).optional(),
-  unresolved_work: z.string().max(20000).optional(),
-  next_action: z.string().max(20000).optional(),
+  search_summary: z.string().max(5000).optional(),
+  unresolved_work: z.string().max(5000).optional(),
+  next_action: z.string().max(5000).optional(),
   next_search_after: z.string().optional(),
   seasonality_conclusion: z.string().max(5000).optional(),
   organizer_domains: z.array(z.string()).optional().default([]),
@@ -532,7 +532,7 @@ const insertCompleteSearchPackageOrgIntelInput = z.object({
   organizer_name: z.string().trim().max(300).optional(),
   organizer_domain: z.string().min(1),
   confidence_level: orgIntelConfidenceLevelEnum,
-  evidence_summary: z.string().max(10000),
+  evidence_summary: z.string().max(3000),
   states: z.array(z.string()).optional().default([]),
   sports: z.array(z.string()).optional().default([]),
   tournament_families: z.array(z.string()).optional().default([]),
@@ -542,7 +542,7 @@ const insertCompleteSearchPackageOrgIntelInput = z.object({
   registration_platform: z.string().trim().max(200).optional(),
   scheduling_platform: z.string().trim().max(200).optional(),
   next_monitor_after: z.string().optional(),
-  notes: z.string().max(10000).optional(),
+  notes: z.string().max(3000).optional(),
 });
 
 export const insertCompleteSearchPackageInput = z.object({
