@@ -173,31 +173,20 @@ export async function getStateSportCoverage(filters: {
     ];
   }
   const supabase = getSupabaseClient();
-  const data = await fetchAllPaginated((from, to) => {
-    let query = supabase.from("tournaments").select("sport,state,official_website_url,tournament_director_email");
-    if (filters.sports?.length) query = query.in("sport", filters.sports);
-    if (filters.states?.length) query = query.in("state", filters.states);
-    return query.range(from, to);
+  const { data, error } = await supabase.rpc("get_state_sport_coverage_rpc", {
+    p_sports: filters.sports?.length ? filters.sports : null,
+    p_states: filters.states?.length ? filters.states : null,
   });
+  if (error) throw error;
 
-  const map = new Map<string, StateSportCoverageRow>();
-  for (const row of (data || []) as any[]) {
-    const key = `${row.sport || "unknown"}-${row.state || ""}`;
-    const existing = map.get(key) || {
-      sport: row.sport,
-      state: row.state,
-      tournament_count: 0,
-      missing_website_count: 0,
-      missing_director_email_count: 0
-    };
-    existing.tournament_count += 1;
-    if (!row.official_website_url) existing.missing_website_count += 1;
-    if (!row.tournament_director_email) existing.missing_director_email_count += 1;
-    map.set(key, existing);
-  }
+  const rows: StateSportCoverageRow[] = (data || []).map((r: any) => ({
+    sport: r.sport,
+    state: r.state,
+    tournament_count: Number(r.tournament_count),
+    missing_website_count: Number(r.missing_website_count),
+    missing_director_email_count: Number(r.missing_director_email_count),
+  }));
 
-  const rows = Array.from(map.values());
-  rows.sort((a, b) => a.tournament_count - b.tournament_count);
   return filters.limit ? rows.slice(0, filters.limit) : rows;
 }
 
