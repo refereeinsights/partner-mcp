@@ -145,9 +145,14 @@ export async function POST(request: Request) {
         result = await getStateSportCoverage(params as any);
         break;
 
-      case "get_missing_fields":
-        result = await getMissingFields(params as any);
+      case "get_missing_fields": {
+        const missingAnyOf =
+          typeof (params as any).missing_any_of_json === "string"
+            ? JSON.parse((params as any).missing_any_of_json)
+            : (params as any).missing_any_of;
+        result = await getMissingFields({ ...(params as any), missing_any_of: missingAnyOf });
         break;
+      }
 
       case "get_organizer_clusters":
         result = await getOrganizerClusters(params as any);

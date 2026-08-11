@@ -175,21 +175,9 @@ paths:
                   type: integer
                   description: Minimum tournament count to include.
 
-                missing_any_of:
-                  type: array
-                  items:
-                    type: string
-                    enum:
-                      - official_website_url
-                      - tournament_director
-                      - tournament_director_email
-                      - referee_contact
-                      - referee_contact_email
-                      - start_date
-                      - end_date
-                      - city
-                      - state
-                  description: Fields to check for missingness.
+                missing_any_of_json:
+                  type: string
+                  description: "JSON array string of fields to check for missingness. Valid values: official_website_url, tournament_director, tournament_director_email, referee_contact, referee_contact_email, start_date, end_date, city, state. Example: [\"official_website_url\",\"tournament_director_email\"]"
 
                 domain:
                   type: string
