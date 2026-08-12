@@ -112,7 +112,7 @@ AS $$
       OR (
         -- Secondary: yearless slug, start_date year matches source_year
         t.slug IS NOT NULL
-        AND t.slug NOT ~ '-[0-9]{4}$'
+        AND t.slug !~ '-[0-9]{4}$'
         AND t.start_date IS NOT NULL
         AND EXTRACT(YEAR FROM t.start_date)::int = p_source_year
       )
