@@ -1786,3 +1786,53 @@ export async function upsertRollForwardLog(input: {
   if (error) throw error;
   return { ok: true, id: (data as any).id };
 }
+
+export async function getRollForwardCandidates(filters: {
+  source_year: number;
+  target_year: number;
+  sport?: string;
+  state?: string;
+  limit: number;
+  offset: number;
+}): Promise<{
+  candidates: any[];
+  returned_count: number;
+  source_year: number;
+  target_year: number;
+  offset: number;
+}> {
+  if (mockMode()) {
+    return {
+      candidates: [],
+      returned_count: 0,
+      source_year: filters.source_year,
+      target_year: filters.target_year,
+      offset: filters.offset,
+    };
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc("get_roll_forward_candidates_rpc", {
+    p_source_year: filters.source_year,
+    p_target_year: filters.target_year,
+    p_sport:       filters.sport  ?? null,
+    p_state:       filters.state  ?? null,
+    p_limit:       filters.limit,
+    p_offset:      filters.offset,
+  });
+  if (error) throw error;
+
+  const candidates = (data ?? []).map((row: any) => ({
+    ...row,
+    venue_count:  Number(row.venue_count ?? 0),
+    venue_names:  Array.isArray(row.venue_names) ? row.venue_names : [],
+  }));
+
+  return {
+    candidates,
+    returned_count: candidates.length,
+    source_year: filters.source_year,
+    target_year: filters.target_year,
+    offset: filters.offset,
+  };
+}

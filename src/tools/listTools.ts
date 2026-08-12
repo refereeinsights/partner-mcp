@@ -25,6 +25,7 @@ export const TOOLS = [
   { name: "get_venue_clusters", category: "tournament_discovery", access: "read", description: "Tournaments grouped by venue with counts." },
 
   // Roll-forward research
+  { name: "get_roll_forward_candidates", category: "roll_forward", access: "read", description: "Bounded read-only candidate feed: published source-year tournaments with no detected target-year sibling and no completed log entry. Returns source context, expected_target_slug, venue_count/names, and log status. Filters: source_year, target_year, sport, state, limit, offset. Does NOT confirm the target-year edition exists — external research required." },
   { name: "get_roll_forward_log", category: "roll_forward", access: "read", description: "Roll-forward research log entries with full parent tournament context: parent_slug, parent_address, parent_zip, parent_sport, parent_state, parent_city, parent_start_date, parent_end_date. Filterable by status, target_year, batch_label, sport, state." },
   { name: "upsert_roll_forward_log", category: "roll_forward", access: "write", description: "Insert or update a roll-forward log entry on (parent_tournament_id, target_year). Statuses: pending, no_dates_announced, discontinued, done, ambiguous. Requires ENABLE_MCP_WRITES=true." },
 

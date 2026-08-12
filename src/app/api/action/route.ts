@@ -56,8 +56,8 @@ import {
   insertTournamentSearchFindingsInput,
   finalizeTournamentSearchRunInput
 } from "../../../lib/searchHistorySchemas";
-import { getRollForwardLog, upsertRollForwardLog } from "../../../lib/queries";
-import { getRollForwardLogInput, upsertRollForwardLogInput } from "../../../lib/schemas";
+import { getRollForwardLog, getRollForwardCandidates, upsertRollForwardLog } from "../../../lib/queries";
+import { getRollForwardLogInput, getRollForwardCandidatesInput, upsertRollForwardLogInput } from "../../../lib/schemas";
 import { TOOLS } from "../../../tools/listTools";
 import { insertSearchOrganizerIntelligence, getSearchOrganizerIntelligence, insertCompleteSearchPackage } from "../../../lib/searchHistoryQueries";
 import {
@@ -353,6 +353,10 @@ export async function POST(request: Request) {
 
       case "get_roll_forward_log":
         result = await getRollForwardLog(getRollForwardLogInput.parse(params));
+        break;
+
+      case "get_roll_forward_candidates":
+        result = await getRollForwardCandidates(getRollForwardCandidatesInput.parse(params));
         break;
 
       case "upsert_roll_forward_log":

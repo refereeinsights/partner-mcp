@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: TournamentInsights Intelligence API
   description: Data intelligence and partner monetization tools for TournamentInsights / RefereeInsights
-  version: 1.5.0
+  version: 1.6.0
 
 servers:
   - url: https://partnermcp-git-main-rod-davis-projects.vercel.app
@@ -74,6 +74,7 @@ paths:
                     - update_partner_status
                     - upsert_partner_placement
                     - insert_partner_test_result
+                    - get_roll_forward_candidates
                     - get_roll_forward_log
                     - upsert_roll_forward_log
                     - list_tools
@@ -146,6 +147,10 @@ paths:
                 max_matches_per_candidate:
                   type: integer
                   description: Maximum production matches to return per candidate in find_production_matches (max 10, default 5).
+
+                source_year:
+                  type: integer
+                  description: "Source year for get_roll_forward_candidates, e.g. 2026."
 
                 start_date_from:
                   type: string

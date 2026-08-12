@@ -604,3 +604,45 @@ export const upsertRollForwardLogOutput = z.object({
 });
 
 export type RollForwardLogRow = z.infer<typeof rollForwardLogRowSchema>;
+
+// Roll-forward candidates (read-only; returned by get_roll_forward_candidates_rpc)
+export const rollForwardCandidateRowSchema = z.object({
+  source_id: z.string(),
+  source_name: z.string(),
+  source_slug: z.string().nullable(),
+  source_sport: z.string().nullable(),
+  source_state: z.string().nullable(),
+  source_city: z.string().nullable(),
+  source_address: z.string().nullable(),
+  source_zip: z.string().nullable(),
+  source_start_date: z.string().nullable(),
+  source_end_date: z.string().nullable(),
+  source_status: z.string().nullable(),
+  source_official_website_url: z.string().nullable(),
+  source_tournament_director: z.string().nullable(),
+  source_tournament_director_email: z.string().nullable(),
+  year_source: z.enum(["slug", "start_date"]),
+  expected_target_slug: z.string().nullable(),
+  log_id: z.string().nullable(),
+  log_status: z.string().nullable(),
+  log_batch_label: z.string().nullable(),
+  venue_count: z.number(),
+  venue_names: z.array(z.string()),
+});
+
+export const getRollForwardCandidatesInput = z.object({
+  source_year: z.number().int().min(2020).max(2040),
+  target_year: z.number().int().min(2020).max(2040),
+  sport: z.string().optional(),
+  state: z.string().optional(),
+  limit: z.number().int().positive().max(100).optional().default(25),
+  offset: z.number().int().nonnegative().optional().default(0),
+});
+
+export const getRollForwardCandidatesOutput = z.object({
+  candidates: z.array(rollForwardCandidateRowSchema),
+  returned_count: z.number(),
+  source_year: z.number(),
+  target_year: z.number(),
+  offset: z.number(),
+});

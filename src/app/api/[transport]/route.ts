@@ -31,6 +31,7 @@ import { registerUpsertPartnerPlacement } from "../../../tools/upsertPartnerPlac
 import { registerInsertPartnerTestResult } from "../../../tools/insertPartnerTestResult";
 import { registerGetTournamentVenueWorklist } from "../../../tools/getTournamentVenueWorklist";
 import { registerGetRollForwardLog } from "../../../tools/getRollForwardLog";
+import { registerGetRollForwardCandidates } from "../../../tools/getRollForwardCandidates";
 import { registerUpsertRollForwardLog } from "../../../tools/upsertRollForwardLog";
 import { registerListTools } from "../../../tools/listTools";
 import { registerGetSearchRuns } from "../../../tools/getSearchRuns";
@@ -120,6 +121,7 @@ const mcpHandler = createMcpHandler(
     registerInsertPartnerTestResult(server);
     registerGetTournamentVenueWorklist(server);
     registerGetRollForwardLog(server);
+    registerGetRollForwardCandidates(server);
     registerUpsertRollForwardLog(server);
 
     // Search-history reads: always registered (internal/operational data,

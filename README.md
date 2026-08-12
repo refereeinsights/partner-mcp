@@ -121,8 +121,20 @@ RLS is enabled on all tables with no permissive policies for `anon`/`authenticat
 
 | Tool | Description |
 |---|---|
+| `get_roll_forward_candidates` | **Bounded read-only candidate feed.** Returns published source-year tournaments with no detected target-year sibling and no completed log entry — without scanning all 8,000+ production tournaments. Primary source-year detection uses slug suffix (e.g. `cal-cup-2026`); secondary uses `start_date` year for yearless slugs (`expected_target_slug` is null for these). Sibling detection checks production records directly, independent of the log. Completed log entries (`done`, `discontinued`) are excluded; `pending`/`no_dates_announced`/`ambiguous` are included with their status visible. Filters: `source_year`, `target_year`, `sport`, `state`, `limit`, `offset`. Ordered by `start_date ASC`, `id ASC` for stable pagination. **A returned candidate does not confirm the target-year edition exists — external research is required.** |
 | `get_roll_forward_log` | Roll-forward research log with full parent tournament context (slug, address, zip, sport, state, city, dates). Filter by status, target_year, batch_label, sport, state. |
 | `upsert_roll_forward_log` | Insert or update a roll-forward log entry on `(parent_tournament_id, target_year)`. Statuses: `pending`, `no_dates_announced`, `discontinued`, `done`, `ambiguous`. Requires `ENABLE_MCP_WRITES=true`. |
+
+**Example workflow:**
+```
+# Fetch 25 baseball roll-forward candidates in Texas, 2026 → 2027
+get_roll_forward_candidates(source_year=2026, target_year=2027, sport=baseball, state=TX, limit=25)
+→ research each externally
+→ upsert_roll_forward_log(status=done/no_dates_announced/ambiguous)
+→ get_roll_forward_candidates(..., offset=25)  # next page
+```
+
+**SQL migration required:** Apply `src/db/sql/get_roll_forward_candidates_rpc_v1.sql` to Supabase before using this tool.
 
 ### System
 
