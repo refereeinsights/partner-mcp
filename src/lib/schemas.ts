@@ -76,6 +76,7 @@ export const tournamentRowSchema = z.object({
   zip: z.string().optional().nullable(),
   start_date: z.string().optional().nullable(),
   end_date: z.string().optional().nullable(),
+  status: z.string().optional().nullable(),
   official_website_url: z.string().optional().nullable(),
   tournament_director: z.string().optional().nullable(),
   tournament_director_email: z.string().optional().nullable(),
@@ -356,6 +357,7 @@ export const getTournamentsInput = z.object({
   start_date_from: z.string().optional(),
   start_date_to: z.string().optional(),
   organizer_domain: z.string().optional(),
+  status: z.string().optional(),
   limit: z.number().int().positive().max(100).optional().default(25),
   offset: z.number().int().nonnegative().optional().default(0),
 });

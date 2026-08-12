@@ -10,6 +10,7 @@ const MCP_SCHEMA = {
   start_date_from: z.string().optional().describe("Filter tournaments with start_date on or after this date, YYYY-MM-DD."),
   start_date_to: z.string().optional().describe("Filter tournaments with start_date on or before this date, YYYY-MM-DD."),
   organizer_domain: z.string().optional().describe("Root domain to match against official_website_url, e.g. gotsoccer.com."),
+  status: z.string().optional().describe("Filter by status. Known values: published, draft, archived."),
   limit: z.number().int().positive().max(100).optional().default(25).describe("Max rows to return (default 25, max 100)."),
   offset: z.number().int().nonnegative().optional().default(0).describe("Pagination offset, 0-based."),
 };

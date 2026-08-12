@@ -1041,6 +1041,7 @@ export async function getTournaments(filters: {
   start_date_from?: string;
   start_date_to?: string;
   organizer_domain?: string;
+  status?: string;
   limit: number;
   offset: number;
 }): Promise<{ data: any[]; total: number }> {
@@ -1057,7 +1058,7 @@ export async function getTournaments(filters: {
 
   const cols = [
     "id", "name", "slug", "sport", "city", "state", "address", "zip",
-    "start_date", "end_date", "official_website_url",
+    "start_date", "end_date", "status", "official_website_url",
     "tournament_director", "tournament_director_email",
     "referee_contact", "referee_contact_email",
   ];
@@ -1070,6 +1071,7 @@ export async function getTournaments(filters: {
   if (filters.state) query = query.eq("state", filters.state);
   if (filters.start_date_from) query = query.gte("start_date", filters.start_date_from);
   if (filters.start_date_to) query = query.lte("start_date", filters.start_date_to);
+  if (filters.status) query = query.eq("status", filters.status);
   if (filters.organizer_domain) {
     const want = rootDomain(filters.organizer_domain);
     query = query.ilike("official_website_url", `%${want}%`);
