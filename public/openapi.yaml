@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: TournamentInsights Intelligence API
   description: Data intelligence and partner monetization tools for TournamentInsights / RefereeInsights
-  version: 1.7.0
+  version: 1.7.1
 
 servers:
   - url: https://partnermcp-git-main-rod-davis-projects.vercel.app
