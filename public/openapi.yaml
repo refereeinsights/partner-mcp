@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: TournamentInsights Intelligence API
   description: Data intelligence and partner monetization tools for TournamentInsights / RefereeInsights
-  version: 1.6.0
+  version: 1.7.0
 
 servers:
   - url: https://partnermcp-git-main-rod-davis-projects.vercel.app
@@ -570,6 +570,84 @@ paths:
                 researched_at:
                   type: string
                   description: ISO 8601 timestamp when the roll-forward entry was researched.
+
+                target_name:
+                  type: string
+                  description: Verified target-year tournament name (upsert_roll_forward_log staging field).
+
+                target_start_date:
+                  type: string
+                  description: Verified target-year start date in YYYY-MM-DD format.
+
+                target_end_date:
+                  type: string
+                  description: Verified target-year end date in YYYY-MM-DD format.
+
+                target_source_url:
+                  type: string
+                  description: Source URL confirming the target-year event exists.
+
+                target_venue_name:
+                  type: string
+                  description: Verified target-year venue name.
+
+                target_venue_address:
+                  type: string
+                  description: Verified target-year venue street address.
+
+                target_venue_city:
+                  type: string
+                  description: Verified target-year venue city.
+
+                target_venue_state:
+                  type: string
+                  description: Verified target-year venue 2-letter state code.
+
+                target_venue_source_url:
+                  type: string
+                  description: Source URL for target-year venue information.
+
+                target_organizer_domain:
+                  type: string
+                  description: Normalized organizer website hostname for the target year.
+
+                production_match_id:
+                  type: string
+                  description: UUID of a candidate production tournament match (pre-confirmation staging).
+
+                match_confidence:
+                  type: string
+                  enum: [explicit, deterministic, likely]
+                  description: Confidence level of the production match.
+
+                recommended_action:
+                  type: string
+                  enum: [link_existing, create_new, manual_review]
+                  description: Recommended next action based on roll-forward research outcome.
+
+                verified_dates:
+                  type: boolean
+                  description: True when target-year dates are confirmed from an authoritative source.
+
+                verified_source:
+                  type: boolean
+                  description: True when the target source URL is confirmed and accessible.
+
+                verified_venue:
+                  type: boolean
+                  description: True when the target venue is confirmed for the target year.
+
+                verified_youth_scope:
+                  type: boolean
+                  description: True when the youth scope (age groups/divisions) is confirmed for the target year.
+
+                last_checked_at:
+                  type: string
+                  description: ISO 8601 datetime of the most recent check.
+
+                next_check_at:
+                  type: string
+                  description: ISO 8601 datetime to recheck (set when status is no_dates_announced).
 
                 source_batch_id:
                   type: string
