@@ -56,8 +56,8 @@ import {
   insertTournamentSearchFindingsInput,
   finalizeTournamentSearchRunInput
 } from "../../../lib/searchHistorySchemas";
-import { getRollForwardLog, getRollForwardCandidates, upsertRollForwardLog } from "../../../lib/queries";
-import { getRollForwardLogInput, getRollForwardCandidatesInput, upsertRollForwardLogInput } from "../../../lib/schemas";
+import { getRollForwardLog, getRollForwardCandidates, getRollForwardCandidatesV2, getTournamentRollForwardContext, upsertRollForwardLog } from "../../../lib/queries";
+import { getRollForwardLogInput, getRollForwardCandidatesInput, getRollForwardCandidatesV2Input, getTournamentRollForwardContextInput, upsertRollForwardLogInput } from "../../../lib/schemas";
 import { TOOLS } from "../../../tools/listTools";
 import { insertSearchOrganizerIntelligence, getSearchOrganizerIntelligence, insertCompleteSearchPackage } from "../../../lib/searchHistoryQueries";
 import {
@@ -357,6 +357,14 @@ export async function POST(request: Request) {
 
       case "get_roll_forward_candidates":
         result = await getRollForwardCandidates(getRollForwardCandidatesInput.parse(params));
+        break;
+
+      case "get_roll_forward_candidates_v2":
+        result = await getRollForwardCandidatesV2(getRollForwardCandidatesV2Input.parse(params));
+        break;
+
+      case "get_tournament_roll_forward_context":
+        result = await getTournamentRollForwardContext(getTournamentRollForwardContextInput.parse(params));
         break;
 
       case "upsert_roll_forward_log":

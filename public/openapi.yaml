@@ -75,6 +75,8 @@ paths:
                     - upsert_partner_placement
                     - insert_partner_test_result
                     - get_roll_forward_candidates
+                    - get_roll_forward_candidates_v2
+                    - get_tournament_roll_forward_context
                     - get_roll_forward_log
                     - upsert_roll_forward_log
                     - list_tools
@@ -150,7 +152,29 @@ paths:
 
                 source_year:
                   type: integer
-                  description: "Source year for get_roll_forward_candidates, e.g. 2026."
+                  description: "Source year for roll-forward candidate tools, e.g. 2026. V2 defaults it to target_year - 1."
+
+                parent_start_date_from:
+                  type: string
+                  description: Inclusive v2 source-tournament start-date lower bound, YYYY-MM-DD.
+
+                parent_start_date_to:
+                  type: string
+                  description: Inclusive v2 source-tournament start-date upper bound, YYYY-MM-DD.
+
+                roll_forward_status:
+                  type: string
+                  enum: [unresearched, pending, no_dates_announced, discontinued, done, ambiguous, any]
+                  description: V2 target-year roll-forward state filter.
+
+                sibling_status:
+                  type: string
+                  enum: [no_confirmed_match, confirmed_match, any]
+                  description: V2 sibling classification filter; likely matches are not confirmed.
+
+                parent_slug:
+                  type: string
+                  description: Production source tournament slug for the context tool.
 
                 start_date_from:
                   type: string
@@ -529,7 +553,7 @@ paths:
 
                 target_year:
                   type: integer
-                  description: Target year (2020–2040) for roll-forward log filtering or upsert.
+                  description: Target year (2020–2040) for roll-forward candidate, context, log filtering, or upsert tools.
 
                 batch_label:
                   type: string
@@ -537,7 +561,7 @@ paths:
 
                 parent_tournament_id:
                   type: string
-                  description: UUID of the parent tournament for a roll-forward log entry.
+                  description: UUID of the source/parent tournament for a roll-forward context or log entry.
 
                 sibling_id:
                   type: string

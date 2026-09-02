@@ -121,20 +121,80 @@ RLS is enabled on all tables with no permissive policies for `anon`/`authenticat
 
 | Tool | Description |
 |---|---|
-| `get_roll_forward_candidates` | **Bounded read-only candidate feed.** Returns published source-year tournaments with no detected target-year sibling and no completed log entry — without scanning all 8,000+ production tournaments. Primary source-year detection uses slug suffix (e.g. `cal-cup-2026`); secondary uses `start_date` year for yearless slugs (`expected_target_slug` is null for these). Sibling detection checks production records directly, independent of the log. Completed log entries (`done`, `discontinued`) are excluded; `pending`/`no_dates_announced`/`ambiguous` are included with their status visible. Filters: `source_year`, `target_year`, `sport`, `state`, `limit`, `offset`. Ordered by `start_date ASC`, `id ASC` for stable pagination. **A returned candidate does not confirm the target-year edition exists — external research is required.** |
-| `get_roll_forward_log` | Roll-forward research log with full parent tournament context (slug, address, zip, sport, state, city, dates). Filter by status, target_year, batch_label, sport, state. |
-| `upsert_roll_forward_log` | Insert or update a roll-forward log entry on `(parent_tournament_id, target_year)`. Statuses: `pending`, `no_dates_announced`, `discontinued`, `done`, `ambiguous`. Requires `ENABLE_MCP_WRITES=true`. |
+| `get_roll_forward_candidates` | **V1 compatibility feed.** Bounded read-only candidate feed. Returns published source-year tournaments with no detected target-year sibling and no completed log entry. Filters: `source_year`, `target_year`, `sport`, `state`, `limit`, `offset`. **A returned candidate does not confirm the target-year edition exists.** |
+| `get_roll_forward_candidates_v2` | **Research-grade candidate feed.** Richer V2 query with complete linked venues, organizer domain, query-derived `unresearched` state, explicit/deterministic/likely/no-match sibling classification, date-range and organizer-domain filtering, and stable pagination. V1 remains unchanged. |
+| `get_tournament_roll_forward_context` | Complete read-only context for one source tournament: full tournament data, linked venues, roll-forward history, and current target-year sibling matches. Anchor by `parent_tournament_id` or `parent_slug`. |
+| `get_roll_forward_log` | Roll-forward research log with full parent tournament context and all target-year staging fields. Filter by status, target_year, batch_label, sport, state. |
+| `upsert_roll_forward_log` | Stage or update a roll-forward research entry on `(parent_tournament_id, target_year)`. Validates status transitions server-side. Writes target-year staging fields and verification flags. Only provided fields are updated on existing rows. Requires `ENABLE_MCP_WRITES=true`. |
 
-**Example workflow:**
+#### Research Status Lifecycle
+
+| Status | Meaning |
+|---|---|
+| `unresearched` | Initial state — no research completed for this target year. |
+| `pending` | Research started or requires follow-up. |
+| `no_dates_announced` | Organizer active but no explicit target-year dates available yet. Set `next_check_at`. |
+| `ambiguous` | Possible target-year relationship exists but identity or duplicate resolution is unsafe. |
+| `ready_to_create` | Verified target staged; available production lookup returned no safe existing child. |
+| `linked_existing` | Confident existing production child identified and linked via `sibling_id`. |
+| `discontinued` | Evidence supports no continuation for this target year. **Terminal for this target-year cycle.** |
+| `done` | Roll-forward relationship reconciled. **Terminal.** |
+
+Transition graph enforced server-side: `done` and `discontinued` are terminal. `ready_to_create` can move to `linked_existing`, `ambiguous`, or `done`. `linked_existing` can move to `done`.
+
+#### Sibling Match States (V2)
+
+| State | Meaning |
+|---|---|
+| `explicitly_linked` | `sibling_id` confirmed in roll-forward log. |
+| `deterministic_match` | Year-adjusted slug + sport match found in production. |
+| `likely_match_returned` | Heuristic (family/domain) match found — requires researcher confirmation. |
+| `no_match_returned` | No match returned by available lookup. Does not prove production absence. |
+
+#### V2 Cohort Workflow
 ```
-# Fetch 25 baseball roll-forward candidates in Texas, 2026 → 2027
-get_roll_forward_candidates(source_year=2026, target_year=2027, sport=baseball, state=TX, limit=25)
-→ research each externally
-→ upsert_roll_forward_log(status=done/no_dates_announced/ambiguous)
-→ get_roll_forward_candidates(..., offset=25)  # next page
+# 1. Select candidates needing 2027 research (Jan Week 1, soccer, TX)
+get_roll_forward_candidates_v2(
+  target_year=2027, parent_start_date_from=2026-01-01, parent_start_date_to=2026-01-07,
+  sport=soccer, state=TX, roll_forward_status=unresearched, limit=25
+)
+
+# 2. For each candidate, get full context
+get_tournament_roll_forward_context(target_year=2027, parent_tournament_id=<id>)
+
+# 3. Research externally, then stage outcome
+upsert_roll_forward_log(
+  parent_tournament_id=<id>, target_year=2027,
+  status=ready_to_create,
+  target_name="Spring Classic 2027",
+  target_start_date="2027-03-15", target_end_date="2027-03-16",
+  target_source_url="https://example.com/2027",
+  verified_dates=true, verified_source=true,
+  recommended_action=create_new
+)
+
+# 4. If a production sibling is found, link it instead
+upsert_roll_forward_log(
+  parent_tournament_id=<id>, target_year=2027,
+  status=linked_existing, sibling_id=<production-child-uuid>
+)
+
+# 5. Reconcile to done
+upsert_roll_forward_log(parent_tournament_id=<id>, target_year=2027, status=done)
+
+# 6. Paginate to next cohort
+get_roll_forward_candidates_v2(..., offset=25)
 ```
 
-**SQL migration required:** Apply `src/db/sql/get_roll_forward_candidates_rpc_v1.sql` to Supabase before using this tool.
+#### Architecture Notes
+- Partner-mcp is a **research and staging layer only** — it does not create production tournament records.
+- Production child creation (`ingest_roll_forward_child`) is deferred pending a production-write architecture decision (direct Supabase vs TI internal API).
+- Venue creation and canonical venue matching are explicitly out of scope — venue data is surfaced for research context only.
+- `find_production_matches` can be used for manual production duplicate lookup before setting `sibling_id`.
+
+**SQL migrations required:**
+- `src/db/sql/get_roll_forward_candidates_rpc_v2.sql` — V2 RPC helper functions and main query (apply before using V2 tools).
+- `src/db/sql/roll_forward_log_staging_columns_v1.sql` — Adds target-year staging columns to `tournament_roll_forward_log` (apply before using staging fields in upsert).
 
 ### System
 

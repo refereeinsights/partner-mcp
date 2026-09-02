@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { supportedSportsSet } from "./normalize";
+import { isIsoDate } from "./rollForwardV2";
 
 export const sportSchema = z
   .string()
@@ -552,8 +553,21 @@ export const rollForwardStatusEnum = z.enum([
   "ambiguous"
 ]);
 
+// V2 research status enum — declared here so it can be used in both V1 log/upsert
+// schemas below and the V2 candidate schemas further down.
+export const rollForwardResearchStatusEnum = z.enum([
+  "unresearched",
+  "pending",
+  "no_dates_announced",
+  "discontinued",
+  "done",
+  "ambiguous",
+  "ready_to_create",
+  "linked_existing",
+]);
+
 export const getRollForwardLogInput = z.object({
-  status: rollForwardStatusEnum.optional(),
+  status: rollForwardResearchStatusEnum.optional(),
   target_year: z.number().int().min(2020).max(2040).optional(),
   batch_label: z.string().optional(),
   sport: sportSchema.optional(),
@@ -575,12 +589,31 @@ export const rollForwardLogRowSchema = z.object({
   parent_start_date: z.string().nullable(),
   parent_end_date: z.string().nullable(),
   target_year: z.number(),
-  status: rollForwardStatusEnum,
+  status: rollForwardResearchStatusEnum,
   batch_label: z.string().nullable(),
   sibling_id: z.string().nullable(),
   sibling_slug: z.string().nullable(),
   notes: z.string().nullable(),
   researched_at: z.string().nullable(),
+  target_name: z.string().nullable(),
+  target_start_date: z.string().nullable(),
+  target_end_date: z.string().nullable(),
+  target_source_url: z.string().nullable(),
+  target_venue_name: z.string().nullable(),
+  target_venue_address: z.string().nullable(),
+  target_venue_city: z.string().nullable(),
+  target_venue_state: z.string().nullable(),
+  target_venue_source_url: z.string().nullable(),
+  target_organizer_domain: z.string().nullable(),
+  production_match_id: z.string().nullable(),
+  match_confidence: z.enum(["explicit", "deterministic", "likely"]).nullable(),
+  recommended_action: z.enum(["link_existing", "create_new", "manual_review"]).nullable(),
+  verified_dates: z.boolean().nullable(),
+  verified_source: z.boolean().nullable(),
+  verified_venue: z.boolean().nullable(),
+  verified_youth_scope: z.boolean().nullable(),
+  last_checked_at: z.string().nullable(),
+  next_check_at: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string()
 });
@@ -591,11 +624,31 @@ export const getRollForwardLogToolOutput = z.object({ data: getRollForwardLogOut
 export const upsertRollForwardLogInput = z.object({
   parent_tournament_id: z.string().uuid("parent_tournament_id must be a valid UUID"),
   target_year: z.number().int().min(2020).max(2040),
-  status: rollForwardStatusEnum,
+  status: rollForwardResearchStatusEnum,
   batch_label: z.string().max(200).optional(),
   notes: z.string().max(10000).optional(),
   sibling_id: z.string().uuid("sibling_id must be a valid UUID").optional(),
-  researched_at: z.string().datetime().optional()
+  researched_at: z.string().datetime().optional(),
+  // Target-year staging fields (all optional; only provided fields are updated)
+  target_name: z.string().max(500).optional(),
+  target_start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be YYYY-MM-DD").optional(),
+  target_end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be YYYY-MM-DD").optional(),
+  target_source_url: z.string().url("must be a valid URL").optional(),
+  target_venue_name: z.string().max(500).optional(),
+  target_venue_address: z.string().max(500).optional(),
+  target_venue_city: z.string().max(200).optional(),
+  target_venue_state: z.string().length(2, "must be a 2-letter state code").optional(),
+  target_venue_source_url: z.string().url("must be a valid URL").optional(),
+  target_organizer_domain: z.string().max(253).optional(),
+  production_match_id: z.string().uuid("production_match_id must be a valid UUID").optional(),
+  match_confidence: z.enum(["explicit", "deterministic", "likely"]).optional(),
+  recommended_action: z.enum(["link_existing", "create_new", "manual_review"]).optional(),
+  verified_dates: z.boolean().optional(),
+  verified_source: z.boolean().optional(),
+  verified_venue: z.boolean().optional(),
+  verified_youth_scope: z.boolean().optional(),
+  last_checked_at: z.string().datetime().optional(),
+  next_check_at: z.string().datetime().optional(),
 });
 
 export const upsertRollForwardLogOutput = z.object({
@@ -604,6 +657,7 @@ export const upsertRollForwardLogOutput = z.object({
 });
 
 export type RollForwardLogRow = z.infer<typeof rollForwardLogRowSchema>;
+export type UpsertRollForwardLogInput = z.infer<typeof upsertRollForwardLogInput>;
 
 // Roll-forward candidates (read-only; returned by get_roll_forward_candidates_rpc)
 export const rollForwardCandidateRowSchema = z.object({
@@ -646,3 +700,197 @@ export const getRollForwardCandidatesOutput = z.object({
   target_year: z.number(),
   offset: z.number(),
 });
+
+// Roll-forward candidates v2. This is intentionally separate from the v1
+// schemas above: v1 is a published compatibility contract.
+// rollForwardResearchStatusEnum is declared earlier in this file (after rollForwardStatusEnum).
+
+export const siblingStatusFilterEnum = z.enum([
+  "no_confirmed_match",
+  "confirmed_match",
+  "any",
+]);
+
+export const siblingMatchStateEnum = z.enum([
+  "explicitly_linked",
+  "deterministic_match",
+  "likely_match_returned",
+  "no_match_returned",
+]);
+
+const optionalIsoDateSchema = z.string().refine(isIsoDate, {
+  message: "must be a valid date in YYYY-MM-DD format",
+});
+
+const getRollForwardCandidatesV2InputBase = z.object({
+  target_year: z.number().int().min(2020).max(2040),
+  source_year: z.number().int().min(2020).max(2040).optional(),
+  parent_start_date_from: optionalIsoDateSchema.optional(),
+  parent_start_date_to: optionalIsoDateSchema.optional(),
+  sport: sportSchema.optional(),
+  state: stateSchema.optional(),
+  organizer_domain: z.string().min(1).optional(),
+  roll_forward_status: z.union([rollForwardResearchStatusEnum, z.literal("any")]).optional(),
+  sibling_status: siblingStatusFilterEnum.optional().default("any"),
+  batch_label: z.string().min(1).max(200).optional(),
+  limit: z.number().int().positive().max(100).optional().default(25),
+  offset: z.number().int().nonnegative().optional().default(0),
+});
+
+export const getRollForwardCandidatesV2Input = getRollForwardCandidatesV2InputBase
+  .superRefine((value, ctx) => {
+    const sourceYear = value.source_year ?? value.target_year - 1;
+    if (value.target_year <= sourceYear) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["target_year"],
+        message: "target_year must be greater than source_year",
+      });
+    }
+    if (
+      value.parent_start_date_from &&
+      value.parent_start_date_to &&
+      value.parent_start_date_from > value.parent_start_date_to
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["parent_start_date_to"],
+        message: "parent_start_date_to must be on or after parent_start_date_from",
+      });
+    }
+    if (value.roll_forward_status === "unresearched" && value.batch_label) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["batch_label"],
+        message: "batch_label cannot be combined with roll_forward_status=unresearched",
+      });
+    }
+  })
+  .transform((value) => ({
+    ...value,
+    source_year: value.source_year ?? value.target_year - 1,
+  }));
+
+export const rollForwardVenueV2Schema = z.object({
+  venue_id: z.string(),
+  venue_name: z.string().nullable(),
+  venue_address: z.string().nullable(),
+  venue_city: z.string().nullable(),
+  venue_state: z.string().nullable(),
+  venue_zip: z.string().nullable(),
+  is_primary: z.boolean().nullable(),
+});
+
+export const rollForwardSiblingMatchV2Schema = z.object({
+  tournament_id: z.string(),
+  slug: z.string().nullable(),
+  name: z.string().nullable(),
+  start_date: z.string().nullable(),
+  end_date: z.string().nullable(),
+  state: z.string().nullable(),
+  city: z.string().nullable(),
+  official_website_url: z.string().nullable(),
+  confidence: z.enum(["explicit", "deterministic", "likely"]),
+  match_reasons: z.array(z.string()),
+  integrity_warnings: z.array(z.string()).optional(),
+});
+
+export const rollForwardCandidateV2Schema = z.object({
+  source_id: z.string(),
+  source_slug: z.string().nullable(),
+  source_name: z.string().nullable(),
+  source_sport: z.string().nullable(),
+  source_state: z.string().nullable(),
+  source_city: z.string().nullable(),
+  source_address: z.string().nullable(),
+  source_zip: z.string().nullable(),
+  source_start_date: z.string().nullable(),
+  source_end_date: z.string().nullable(),
+  source_official_website_url: z.string().nullable(),
+  organizer_domain: z.string().nullable(),
+  tournament_director: z.string().nullable(),
+  tournament_director_email: z.string().nullable(),
+  source_year: z.number().int().nullable(),
+  target_year: z.number().int(),
+  roll_forward_status: rollForwardResearchStatusEnum,
+  roll_forward_log_id: z.string().nullable(),
+  roll_forward_batch_label: z.string().nullable(),
+  roll_forward_notes: z.string().nullable(),
+  roll_forward_researched_at: z.string().nullable(),
+  sibling_match_state: siblingMatchStateEnum,
+  sibling_matches: z.array(rollForwardSiblingMatchV2Schema),
+  parent_venue_count: z.number().int().nonnegative(),
+  venues: z.array(rollForwardVenueV2Schema),
+  venue_roll_forward_policy: z.literal("inherit_parent_unless_changed"),
+  data_quality_warnings: z.array(z.string()),
+});
+
+export const getRollForwardCandidatesV2Output = z.object({
+  rows: z.array(rollForwardCandidateV2Schema),
+  limit: z.number().int().positive(),
+  offset: z.number().int().nonnegative(),
+  has_more: z.boolean(),
+});
+
+export const getTournamentRollForwardContextInput = z
+  .object({
+    target_year: z.number().int().min(2020).max(2040),
+    parent_tournament_id: z.string().uuid().optional(),
+    parent_slug: z.string().min(1).optional(),
+  })
+  .refine((value) => value.parent_tournament_id || value.parent_slug, {
+    message: "parent_tournament_id or parent_slug is required",
+  });
+
+export const rollForwardHistoryRowV2Schema = z.object({
+  id: z.string(),
+  target_year: z.number().int(),
+  status: rollForwardResearchStatusEnum,
+  batch_label: z.string().nullable(),
+  sibling_id: z.string().nullable(),
+  notes: z.string().nullable(),
+  researched_at: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const getTournamentRollForwardContextOutput = z.object({
+  source: z.object({
+    source_id: z.string(),
+    source_slug: z.string().nullable(),
+    source_name: z.string().nullable(),
+    source_sport: z.string().nullable(),
+    source_state: z.string().nullable(),
+    source_city: z.string().nullable(),
+    source_address: z.string().nullable(),
+    source_zip: z.string().nullable(),
+    source_start_date: z.string().nullable(),
+    source_end_date: z.string().nullable(),
+    source_official_website_url: z.string().nullable(),
+    organizer_domain: z.string().nullable(),
+    tournament_director: z.string().nullable(),
+    tournament_director_email: z.string().nullable(),
+    source_year: z.number().int().nullable(),
+  }),
+  venues: z.array(rollForwardVenueV2Schema),
+  parent_venue_count: z.number().int().nonnegative(),
+  venue_roll_forward_policy: z.literal("inherit_parent_unless_changed"),
+  data_quality_warnings: z.array(z.string()),
+  roll_forward_history: z.array(rollForwardHistoryRowV2Schema),
+  target_year_state: z.object({
+    target_year: z.number().int(),
+    roll_forward_status: rollForwardResearchStatusEnum,
+    roll_forward_log_id: z.string().nullable(),
+    roll_forward_batch_label: z.string().nullable(),
+    roll_forward_notes: z.string().nullable(),
+    roll_forward_researched_at: z.string().nullable(),
+    sibling_match_state: siblingMatchStateEnum,
+    sibling_matches: z.array(rollForwardSiblingMatchV2Schema),
+  }),
+});
+
+export type GetRollForwardCandidatesV2Input = z.infer<typeof getRollForwardCandidatesV2Input>;
+export type RollForwardCandidateV2 = z.infer<typeof rollForwardCandidateV2Schema>;
+export type GetRollForwardCandidatesV2Output = z.infer<typeof getRollForwardCandidatesV2Output>;
+export type GetTournamentRollForwardContextInput = z.infer<typeof getTournamentRollForwardContextInput>;
+export type GetTournamentRollForwardContextOutput = z.infer<typeof getTournamentRollForwardContextOutput>;

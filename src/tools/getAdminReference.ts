@@ -135,6 +135,21 @@ Stores organizer-level research intelligence attached to one tournament-discover
 
 **Workflow position:** Optional step after findings are recorded, before or after \`finalize_tournament_search_run\`. Does not affect numerical finding metrics.`,
 
+  rollForwardV2: `## Roll-Forward Research v2
+
+**Read tools:**
+- \`get_roll_forward_candidates\` — compatibility v1; unchanged.
+- \`get_roll_forward_candidates_v2\` — full source, venue, target-year log, and classified sibling context.
+- \`get_tournament_roll_forward_context\` — one source tournament by production ID or slug, including all log history.
+
+**Match hierarchy:** explicitly linked → deterministic exact year-adjusted slug → likely deterministic family match → no match returned. \`no_confirmed_match\` means likely or no-match; it never proves absence.
+
+**Venue policy:** Source \`tournament_venues\` relationships inherit by default unless external target-year evidence explicitly identifies a change. The MCP tools are read-only and never modify venues or link likely siblings.
+
+**Statuses:** \`pending\`, \`no_dates_announced\`, \`discontinued\`, \`done\`, \`ambiguous\`. \`unresearched\` is query-derived when no target-year log row exists; it is not persisted.
+
+**External boundary:** Reviewed ingestion remains outside this repository. The documented CSV contract is \`existing_tournament_id,target_year,roll_forward_status,start_date,end_date,batch_label,source_url\`.`,
+
   planned: `## Planned / Not Yet Built
 
 - **\`api_usage_alarms\` table** — Will store alarm configs (threshold, API, surface, comparison operator).
@@ -151,6 +166,13 @@ type SectionKey = keyof typeof SECTIONS;
 // ---------------------------------------------------------------------------
 
 const KEYWORD_MAP: Array<{ keywords: string[]; section: SectionKey }> = [
+  {
+    keywords: [
+      "roll forward", "roll-forward", "get_roll_forward_candidates_v2",
+      "get_tournament_roll_forward_context", "no_confirmed_match", "venue inheritance"
+    ],
+    section: "rollForwardV2"
+  },
   {
     keywords: ["api-usage", "api usage", "brave", "bing", "serpapi", "serp", "usage summary", "from_ts", "to_ts", "rpc", "how do i check"],
     section: "apiUsage"

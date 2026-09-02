@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
+    "test:roll-forward-db": "RUN_ROLL_FORWARD_DB_TESTS=true vitest --run src/lib/__tests__/rollForwardV2.integration.test.ts",
     "validate": "npx js-yaml public/openapi.yaml > /dev/null && npx tsc --noEmit && echo \"✓ YAML and TypeScript OK\""
   },
   "dependencies": {

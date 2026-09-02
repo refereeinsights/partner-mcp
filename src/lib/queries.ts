@@ -7,15 +7,22 @@ import {
   MissingVenuesResult,
   OrganizerCluster,
   ResearchBatchRow,
+  GetRollForwardCandidatesV2Input,
+  GetRollForwardCandidatesV2Output,
+  GetTournamentRollForwardContextInput,
+  GetTournamentRollForwardContextOutput,
   RollForwardLogRow,
+  RollForwardCandidateV2,
   StateSportCoverageRow,
   SummaryDashboard,
   TournamentVenueWorklistFilters,
   TournamentVenueWorklistResult,
   TournamentVenueWorklistRow,
   TrendRow,
+  UpsertRollForwardLogInput,
   VenueCluster
 } from "./schemas";
+import { validateStatusTransition, RollForwardResearchStatus } from "./rollForwardV2";
 const MOCK_TOURNAMENTS = [
   {
     id: "mock-tournament-1",
@@ -1674,7 +1681,7 @@ export async function getTournamentVenueWorklist(
 }
 
 export async function getRollForwardLog(filters: {
-  status?: "pending" | "no_dates_announced" | "discontinued" | "done" | "ambiguous";
+  status?: RollForwardResearchStatus;
   target_year?: number;
   batch_label?: string;
   sport?: string;
@@ -1697,6 +1704,25 @@ export async function getRollForwardLog(filters: {
        sibling_id,
        notes,
        researched_at,
+       target_name,
+       target_start_date,
+       target_end_date,
+       target_source_url,
+       target_venue_name,
+       target_venue_address,
+       target_venue_city,
+       target_venue_state,
+       target_venue_source_url,
+       target_organizer_domain,
+       production_match_id,
+       match_confidence,
+       recommended_action,
+       verified_dates,
+       verified_source,
+       verified_venue,
+       verified_youth_scope,
+       last_checked_at,
+       next_check_at,
        created_at,
        updated_at,
        parent_tournament:tournaments!parent_tournament_id(name,slug,sport,state,city,address,zip,start_date,end_date),
@@ -1748,43 +1774,113 @@ export async function getRollForwardLog(filters: {
       sibling_slug: s.slug ?? null,
       notes: row.notes ?? null,
       researched_at: row.researched_at ?? null,
+      target_name: row.target_name ?? null,
+      target_start_date: row.target_start_date ?? null,
+      target_end_date: row.target_end_date ?? null,
+      target_source_url: row.target_source_url ?? null,
+      target_venue_name: row.target_venue_name ?? null,
+      target_venue_address: row.target_venue_address ?? null,
+      target_venue_city: row.target_venue_city ?? null,
+      target_venue_state: row.target_venue_state ?? null,
+      target_venue_source_url: row.target_venue_source_url ?? null,
+      target_organizer_domain: row.target_organizer_domain ?? null,
+      production_match_id: row.production_match_id ?? null,
+      match_confidence: row.match_confidence ?? null,
+      recommended_action: row.recommended_action ?? null,
+      verified_dates: row.verified_dates ?? null,
+      verified_source: row.verified_source ?? null,
+      verified_venue: row.verified_venue ?? null,
+      verified_youth_scope: row.verified_youth_scope ?? null,
+      last_checked_at: row.last_checked_at ?? null,
+      next_check_at: row.next_check_at ?? null,
       created_at: row.created_at,
       updated_at: row.updated_at
     };
   });
 }
 
-export async function upsertRollForwardLog(input: {
-  parent_tournament_id: string;
-  target_year: number;
-  status: "pending" | "no_dates_announced" | "discontinued" | "done" | "ambiguous";
-  batch_label?: string;
-  notes?: string;
-  sibling_id?: string;
-  researched_at?: string;
-}): Promise<{ ok: true; id: string }> {
+export async function upsertRollForwardLog(
+  input: UpsertRollForwardLogInput
+): Promise<{ ok: true; id: string }> {
   assertWritesEnabled();
   const supabase = getSupabaseClient();
 
-  const payload: Record<string, unknown> = {
-    parent_tournament_id: input.parent_tournament_id,
-    target_year: input.target_year,
-    status: input.status,
-    batch_label: input.batch_label ?? null,
-    notes: input.notes ?? null,
-    sibling_id: input.sibling_id ?? null,
-    researched_at: input.researched_at ?? null,
-    updated_at: new Date().toISOString()
-  };
-
-  const { data, error } = await supabase
+  // Fetch current row for transition validation and sibling protection.
+  const { data: existing, error: fetchErr } = await supabase
     .from("tournament_roll_forward_log")
-    .upsert(payload, { onConflict: "parent_tournament_id,target_year" })
-    .select("id")
-    .single();
+    .select("id, status, sibling_id")
+    .eq("parent_tournament_id", input.parent_tournament_id)
+    .eq("target_year", input.target_year)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
 
-  if (error) throw error;
-  return { ok: true, id: (data as any).id };
+  // Validate status transition.
+  const currentStatus = (existing?.status ?? "unresearched") as RollForwardResearchStatus;
+  validateStatusTransition(currentStatus, input.status);
+
+  // Prevent silently replacing a confirmed sibling with a different one.
+  if (
+    existing?.sibling_id &&
+    input.sibling_id !== undefined &&
+    input.sibling_id !== existing.sibling_id
+  ) {
+    throw new Error(
+      `Sibling replacement rejected: existing sibling ${existing.sibling_id} cannot be replaced ` +
+      `with ${input.sibling_id}. Use an explicit administrative action to change a confirmed sibling.`
+    );
+  }
+
+  // Build a selective patch: only include fields that were explicitly provided.
+  const patch: Record<string, unknown> = {
+    status: input.status,
+    updated_at: new Date().toISOString(),
+  };
+  if (input.batch_label !== undefined)         patch.batch_label = input.batch_label;
+  if (input.notes !== undefined)               patch.notes = input.notes;
+  if (input.sibling_id !== undefined)          patch.sibling_id = input.sibling_id;
+  if (input.researched_at !== undefined)       patch.researched_at = input.researched_at;
+  if (input.target_name !== undefined)         patch.target_name = input.target_name;
+  if (input.target_start_date !== undefined)   patch.target_start_date = input.target_start_date;
+  if (input.target_end_date !== undefined)     patch.target_end_date = input.target_end_date;
+  if (input.target_source_url !== undefined)   patch.target_source_url = input.target_source_url;
+  if (input.target_venue_name !== undefined)   patch.target_venue_name = input.target_venue_name;
+  if (input.target_venue_address !== undefined) patch.target_venue_address = input.target_venue_address;
+  if (input.target_venue_city !== undefined)   patch.target_venue_city = input.target_venue_city;
+  if (input.target_venue_state !== undefined)  patch.target_venue_state = input.target_venue_state?.toUpperCase();
+  if (input.target_venue_source_url !== undefined) patch.target_venue_source_url = input.target_venue_source_url;
+  if (input.target_organizer_domain !== undefined) patch.target_organizer_domain = input.target_organizer_domain;
+  if (input.production_match_id !== undefined) patch.production_match_id = input.production_match_id;
+  if (input.match_confidence !== undefined)    patch.match_confidence = input.match_confidence;
+  if (input.recommended_action !== undefined)  patch.recommended_action = input.recommended_action;
+  if (input.verified_dates !== undefined)      patch.verified_dates = input.verified_dates;
+  if (input.verified_source !== undefined)     patch.verified_source = input.verified_source;
+  if (input.verified_venue !== undefined)      patch.verified_venue = input.verified_venue;
+  if (input.verified_youth_scope !== undefined) patch.verified_youth_scope = input.verified_youth_scope;
+  if (input.last_checked_at !== undefined)     patch.last_checked_at = input.last_checked_at;
+  if (input.next_check_at !== undefined)       patch.next_check_at = input.next_check_at;
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from("tournament_roll_forward_log")
+      .update(patch)
+      .eq("id", existing.id)
+      .select("id")
+      .single();
+    if (error) throw error;
+    return { ok: true, id: (data as any).id };
+  } else {
+    const { data, error } = await supabase
+      .from("tournament_roll_forward_log")
+      .insert({
+        parent_tournament_id: input.parent_tournament_id,
+        target_year: input.target_year,
+        ...patch,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    return { ok: true, id: (data as any).id };
+  }
 }
 
 export async function getRollForwardCandidates(filters: {
@@ -1834,5 +1930,146 @@ export async function getRollForwardCandidates(filters: {
     source_year: filters.source_year,
     target_year: filters.target_year,
     offset: filters.offset,
+  };
+}
+
+async function callRollForwardCandidatesV2Rpc(
+  filters: GetRollForwardCandidatesV2Input,
+  anchors?: { source_id?: string; source_slug?: string }
+): Promise<RollForwardCandidateV2[]> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc("get_roll_forward_candidates_rpc_v2", {
+    p_target_year: filters.target_year,
+    p_source_year: filters.source_year,
+    p_parent_start_date_from: filters.parent_start_date_from ?? null,
+    p_parent_start_date_to: filters.parent_start_date_to ?? null,
+    p_sport: filters.sport ?? null,
+    p_state: filters.state ?? null,
+    p_organizer_domain: filters.organizer_domain ?? null,
+    p_roll_forward_status: filters.roll_forward_status ?? null,
+    p_sibling_status: filters.sibling_status,
+    p_batch_label: filters.batch_label ?? null,
+    p_limit: filters.limit,
+    p_offset: filters.offset,
+    p_source_id: anchors?.source_id ?? null,
+    p_source_slug: anchors?.source_slug ?? null,
+  });
+  if (error) throw error;
+
+  return (data ?? []).map((value: any) => value?.row_data ?? value);
+}
+
+export async function getRollForwardCandidatesV2(
+  filters: GetRollForwardCandidatesV2Input
+): Promise<GetRollForwardCandidatesV2Output> {
+  if (mockMode()) {
+    return { rows: [], limit: filters.limit, offset: filters.offset, has_more: false };
+  }
+
+  const fetched = await callRollForwardCandidatesV2Rpc(filters);
+  const hasMore = fetched.length > filters.limit;
+  return {
+    rows: fetched.slice(0, filters.limit),
+    limit: filters.limit,
+    offset: filters.offset,
+    has_more: hasMore,
+  };
+}
+
+export async function getTournamentRollForwardContext(
+  input: GetTournamentRollForwardContextInput
+): Promise<GetTournamentRollForwardContextOutput> {
+  if (mockMode()) {
+    throw new Error("No production tournament matched the supplied anchor");
+  }
+
+  const supabase = getSupabaseClient();
+  let parentQuery = supabase
+    .from("tournaments")
+    .select("id,slug")
+    .eq("status", "published")
+    .eq("is_canonical", true);
+  if (input.parent_tournament_id) parentQuery = parentQuery.eq("id", input.parent_tournament_id);
+  if (input.parent_slug) parentQuery = parentQuery.eq("slug", input.parent_slug);
+  const { data: parentRows, error: parentError } = await parentQuery.limit(2);
+  if (parentError) throw parentError;
+  if (!parentRows?.length) {
+    throw new Error(
+      input.parent_tournament_id && input.parent_slug
+        ? "parent_tournament_id and parent_slug do not resolve to the same production tournament"
+        : "No production tournament matched the supplied anchor"
+    );
+  }
+  if (parentRows.length > 1) {
+    throw new Error(`parent_slug is ambiguous across ${parentRows.length} production tournaments`);
+  }
+
+  const parent = parentRows[0] as { id: string; slug: string | null };
+  const sourceYear = input.target_year - 1;
+  const candidates = await callRollForwardCandidatesV2Rpc(
+    {
+      target_year: input.target_year,
+      source_year: sourceYear,
+      sibling_status: "any",
+      roll_forward_status: "any",
+      limit: 1,
+      offset: 0,
+    },
+    { source_id: parent.id }
+  );
+  const row = candidates[0];
+  if (!row) throw new Error("Production tournament context could not be loaded");
+
+  const { data: historyRows, error: historyError } = await supabase
+    .from("tournament_roll_forward_log")
+    .select("id,target_year,status,batch_label,sibling_id,notes,researched_at,created_at,updated_at")
+    .eq("parent_tournament_id", parent.id)
+    .order("target_year", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (historyError) throw historyError;
+
+  return {
+    source: {
+      source_id: row.source_id,
+      source_slug: row.source_slug,
+      source_name: row.source_name,
+      source_sport: row.source_sport,
+      source_state: row.source_state,
+      source_city: row.source_city,
+      source_address: row.source_address,
+      source_zip: row.source_zip,
+      source_start_date: row.source_start_date,
+      source_end_date: row.source_end_date,
+      source_official_website_url: row.source_official_website_url,
+      organizer_domain: row.organizer_domain,
+      tournament_director: row.tournament_director,
+      tournament_director_email: row.tournament_director_email,
+      source_year: row.source_year,
+    },
+    venues: row.venues,
+    parent_venue_count: row.parent_venue_count,
+    venue_roll_forward_policy: row.venue_roll_forward_policy,
+    data_quality_warnings: row.data_quality_warnings,
+    roll_forward_history: (historyRows ?? []).map((history: any) => ({
+      id: history.id,
+      target_year: history.target_year,
+      status: history.status,
+      batch_label: history.batch_label ?? null,
+      sibling_id: history.sibling_id ?? null,
+      notes: history.notes ?? null,
+      researched_at: history.researched_at ?? null,
+      created_at: history.created_at,
+      updated_at: history.updated_at,
+    })),
+    target_year_state: {
+      target_year: row.target_year,
+      roll_forward_status: row.roll_forward_status,
+      roll_forward_log_id: row.roll_forward_log_id,
+      roll_forward_batch_label: row.roll_forward_batch_label,
+      roll_forward_notes: row.roll_forward_notes,
+      roll_forward_researched_at: row.roll_forward_researched_at,
+      sibling_match_state: row.sibling_match_state,
+      sibling_matches: row.sibling_matches,
+    },
   };
 }
