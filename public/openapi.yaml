@@ -164,8 +164,8 @@ paths:
 
                 roll_forward_status:
                   type: string
-                  enum: [unresearched, pending, no_dates_announced, discontinued, done, ambiguous, any]
-                  description: V2 target-year roll-forward state filter.
+                  enum: [unresearched, pending, no_dates_announced, discontinued, done, ambiguous, ready_to_create, linked_existing, any]
+                  description: V2 target-year roll-forward state filter for candidate/log read tools.
 
                 sibling_status:
                   type: string
@@ -254,7 +254,23 @@ paths:
 
                 status:
                   type: string
-                  description: Status value.
+                  enum:
+                    - unresearched
+                    - pending
+                    - no_dates_announced
+                    - ambiguous
+                    - discontinued
+                    - ready_to_create
+                    - linked_existing
+                    - done
+                    - published
+                    - draft
+                    - archived
+                  description: >
+                    Status value. For upsert_roll_forward_log use the roll-forward research statuses:
+                    unresearched, pending, no_dates_announced, ambiguous, discontinued,
+                    ready_to_create, linked_existing, done.
+                    For get_tournaments use: published, draft, archived.
 
                 organizer_domain:
                   type: string
