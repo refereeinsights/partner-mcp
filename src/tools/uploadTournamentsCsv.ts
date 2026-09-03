@@ -44,6 +44,15 @@ async function callImportEndpoint(input: z.infer<typeof uploadTournamentsCsvInpu
     body: JSON.stringify(body),
   });
 
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    const text = await res.text();
+    throw new Error(
+      `Import endpoint returned non-JSON (HTTP ${res.status}). ` +
+      `Content-Type: ${contentType}. Body: ${text.slice(0, 300)}`
+    );
+  }
+
   const data = await res.json() as Record<string, unknown>;
 
   if (!res.ok) {
