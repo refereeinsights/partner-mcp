@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: TournamentInsights Intelligence API
   description: Data intelligence and partner monetization tools for TournamentInsights / RefereeInsights
-  version: 1.7.1
+  version: 1.8.0
 
 servers:
   - url: https://partnermcp-git-main-rod-davis-projects.vercel.app
@@ -94,6 +94,37 @@ paths:
                     - insert_complete_search_package
                     - get_tournaments
                     - find_production_matches
+                    - upload_tournaments_csv
+
+                csv_content:
+                  type: string
+                  description: >
+                    Raw CSV text to import (upload_tournaments_csv).
+                    Required CSV columns: name, state or city, source_url.
+                    Include a sport column or set fallback_sport.
+                    Optional columns: level, start_date, end_date, venue, address,
+                    zip, notes, tournament_director, tournament_director_email, source_event_id.
+
+                fallback_sport:
+                  type: string
+                  description: Sport applied to rows that have no sport column (upload_tournaments_csv).
+                  enum:
+                    - soccer
+                    - baseball
+                    - softball
+                    - lacrosse
+                    - basketball
+                    - hockey
+                    - volleyball
+                    - futsal
+
+                fallback_state:
+                  type: string
+                  description: 2-letter state code applied to rows missing a state column (upload_tournaments_csv).
+
+                fallback_city:
+                  type: string
+                  description: City applied to rows missing a city column (upload_tournaments_csv).
 
                 sport:
                   type: string

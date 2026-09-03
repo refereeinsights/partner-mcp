@@ -50,6 +50,7 @@ import { registerInsertSearchOrganizerIntelligence } from "../../../tools/insert
 import { registerInsertCompleteSearchPackage } from "../../../tools/insertCompleteSearchPackage";
 import { registerGetTournaments } from "../../../tools/getTournaments";
 import { registerFindProductionMatches } from "../../../tools/findProductionMatches";
+import { registerUploadTournamentsCsv } from "../../../tools/uploadTournamentsCsv";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -127,6 +128,7 @@ const mcpHandler = createMcpHandler(
     registerGetRollForwardCandidatesV2(server);
     registerGetTournamentRollForwardContext(server);
     registerUpsertRollForwardLog(server);
+    registerUploadTournamentsCsv(server);
 
     // Search-history reads: always registered (internal/operational data,
     // queried with the same service-role client as everything else here).

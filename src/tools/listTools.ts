@@ -62,6 +62,7 @@ export const TOOLS = [
   { name: "insert_research_note", category: "write", access: "write", description: "Attach a freeform research note to any entity (organizer, tournament, venue, other). Requires ENABLE_MCP_WRITES=true." },
   { name: "insert_partner_note", category: "write", access: "write", description: "Attach a note to a partner record. Requires ENABLE_MCP_WRITES=true." },
   { name: "insert_partner_test_result", category: "write", access: "write", description: "Record a partner integration test result. Requires ENABLE_MCP_WRITES=true." },
+  { name: "upload_tournaments_csv", category: "write", access: "write", description: "Submit a CSV through the TournamentInsights import pipeline (same path as admin Upload form). Validates, deduplicates, and enriches rows. Returns counts and row-level errors. Requires ENABLE_MCP_WRITES=true and INTERNAL_API_SECRET." },
 
   // Utility
   { name: "mcp_healthcheck", category: "utility", access: "read", description: "Confirm server configuration: writes enabled, mock mode, key presence. Does not reveal secret values." },

@@ -894,3 +894,40 @@ export type RollForwardCandidateV2 = z.infer<typeof rollForwardCandidateV2Schema
 export type GetRollForwardCandidatesV2Output = z.infer<typeof getRollForwardCandidatesV2Output>;
 export type GetTournamentRollForwardContextInput = z.infer<typeof getTournamentRollForwardContextInput>;
 export type GetTournamentRollForwardContextOutput = z.infer<typeof getTournamentRollForwardContextOutput>;
+
+// --- upload_tournaments_csv ---
+
+const uploadSourceEnum = z.enum([
+  "us_club_soccer", "cal_south", "gotsoccer", "soccerwire", "external_crawl", "public_submission",
+]);
+
+const uploadSportEnum = z.enum([
+  "soccer", "baseball", "softball", "lacrosse", "basketball", "hockey", "volleyball", "futsal",
+]);
+
+export const uploadTournamentsCsvInput = z.object({
+  csv_content: z.string().min(1),
+  source: uploadSourceEnum.optional().default("external_crawl"),
+  status: z.enum(["draft", "published"]).optional().default("draft"),
+  fallback_sport: uploadSportEnum.optional(),
+  fallback_state: z.string().length(2).toUpperCase().optional(),
+  fallback_city: z.string().optional(),
+});
+
+export const uploadTournamentsCsvOutput = z.object({
+  ok: z.boolean(),
+  total_rows: z.number().int(),
+  accepted: z.number().int(),
+  failed: z.number().int(),
+  new_count: z.number().int(),
+  existing_count: z.number().int(),
+  dropped_by_cleaner: z.number().int(),
+  venue_links_created: z.number().int(),
+  venue_links_attempted: z.number().int(),
+  venue_link_errors: z.number().int(),
+  errors: z.array(z.object({ name: z.string(), error: z.string() })).optional(),
+  dropped_rows: z.array(z.object({ name: z.string(), reason: z.string() })).optional(),
+});
+
+export type UploadTournamentsCsvInput = z.infer<typeof uploadTournamentsCsvInput>;
+export type UploadTournamentsCsvOutput = z.infer<typeof uploadTournamentsCsvOutput>;
