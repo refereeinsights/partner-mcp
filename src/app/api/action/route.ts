@@ -59,6 +59,8 @@ import {
 import { getRollForwardLog, getRollForwardCandidates, getRollForwardCandidatesV2, getTournamentRollForwardContext, upsertRollForwardLog } from "../../../lib/queries";
 import { getRollForwardLogInput, getRollForwardCandidatesInput, getRollForwardCandidatesV2Input, getTournamentRollForwardContextInput, upsertRollForwardLogInput, uploadTournamentsCsvInput } from "../../../lib/schemas";
 import { uploadTournamentsCsv } from "../../../tools/uploadTournamentsCsv";
+import { getTournamentEnrichmentContext, getTournamentEnrichmentProposals, upsertTournamentEnrichmentProposal } from "../../../lib/enrichmentQueries";
+import { getTournamentEnrichmentContextInput, getTournamentEnrichmentProposalsInput, upsertTournamentEnrichmentProposalInput } from "../../../lib/enrichmentSchemas";
 import { TOOLS } from "../../../tools/listTools";
 import { insertSearchOrganizerIntelligence, getSearchOrganizerIntelligence, insertCompleteSearchPackage } from "../../../lib/searchHistoryQueries";
 import {
@@ -374,6 +376,18 @@ export async function POST(request: Request) {
 
       case "upload_tournaments_csv":
         result = await uploadTournamentsCsv(uploadTournamentsCsvInput.parse(params));
+        break;
+
+      case "get_tournament_enrichment_context":
+        result = await getTournamentEnrichmentContext(getTournamentEnrichmentContextInput.parse(params));
+        break;
+
+      case "get_tournament_enrichment_proposals":
+        result = await getTournamentEnrichmentProposals(getTournamentEnrichmentProposalsInput.parse(params));
+        break;
+
+      case "upsert_tournament_enrichment_proposal":
+        result = await upsertTournamentEnrichmentProposal(upsertTournamentEnrichmentProposalInput.parse(params));
         break;
 
       default:

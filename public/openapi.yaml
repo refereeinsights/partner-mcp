@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: TournamentInsights Intelligence API
   description: Data intelligence and partner monetization tools for TournamentInsights / RefereeInsights
-  version: 1.8.0
+  version: 1.9.0
 
 servers:
   - url: https://partnermcp-git-main-rod-davis-projects.vercel.app
@@ -95,6 +95,9 @@ paths:
                     - get_tournaments
                     - find_production_matches
                     - upload_tournaments_csv
+                    - get_tournament_enrichment_context
+                    - get_tournament_enrichment_proposals
+                    - upsert_tournament_enrichment_proposal
 
                 csv_content:
                   type: string
@@ -125,6 +128,37 @@ paths:
                 fallback_city:
                   type: string
                   description: City applied to rows missing a city column (upload_tournaments_csv).
+
+                proposed_value_json:
+                  type: string
+                  description: >
+                    JSON object string for upsert_tournament_enrichment_proposal.
+                    Shape depends on action_type:
+                    add_official_source → {"url":"https://..."},
+                    correct_dates → {"start_date":"YYYY-MM-DD","end_date":"YYYY-MM-DD"},
+                    add_venue/add_additional_venue/correct_venue → {"name":"...","address":"...","city":"...","state":"TX","zip":"...","sport":"..."},
+                    correct_tournament_location → {"city":"...","state":"TX"},
+                    merge_duplicate → {"duplicate_tournament_id":"uuid","duplicate_name":"...","duplicate_slug":"..."},
+                    manual_review → {"issue":"description"}.
+
+                enrichment_action_type:
+                  type: string
+                  description: Enrichment proposal action type (upsert_tournament_enrichment_proposal).
+                  enum:
+                    - add_official_source
+                    - correct_dates
+                    - add_venue
+                    - add_additional_venue
+                    - correct_venue
+                    - correct_tournament_location
+                    - merge_duplicate
+                    - manual_review
+
+                proposed_by:
+                  type: string
+                  description: >
+                    Free-text agent/tool identity e.g. ti-organizer-intelligence, partner-mcp
+                    (upsert_tournament_enrichment_proposal).
 
                 sport:
                   type: string
@@ -297,11 +331,20 @@ paths:
                     - published
                     - draft
                     - archived
+                    - pending_review
+                    - needs_verification
+                    - approved
+                    - rejected
+                    - applied
                   description: >
-                    Status value. For upsert_roll_forward_log use the roll-forward research statuses:
+                    Status value. For upsert_roll_forward_log use roll-forward research statuses:
                     unresearched, pending, no_dates_announced, ambiguous, discontinued,
                     ready_to_create, linked_existing, done.
                     For get_tournaments use: published, draft, archived.
+                    For upsert_tournament_enrichment_proposal use: pending_review (default),
+                    needs_verification.
+                    For get_tournament_enrichment_proposals filter use: pending_review,
+                    needs_verification, approved, rejected, applied.
 
                 organizer_domain:
                   type: string
@@ -434,7 +477,7 @@ paths:
 
                 venue_source_url:
                   type: string
-                  description: Source URL verifying the venue.
+                  description: Source URL verifying the venue. For upsert_tournament_enrichment_proposal, stored in a dedicated column separate from source_url.
 
                 existing_tournament_id:
                   type: string

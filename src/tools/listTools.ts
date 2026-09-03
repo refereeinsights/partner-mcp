@@ -64,6 +64,11 @@ export const TOOLS = [
   { name: "insert_partner_test_result", category: "write", access: "write", description: "Record a partner integration test result. Requires ENABLE_MCP_WRITES=true." },
   { name: "upload_tournaments_csv", category: "write", access: "write", description: "Submit a CSV through the TournamentInsights import pipeline (same path as admin Upload form). Validates, deduplicates, and enriches rows. Returns counts and row-level errors. Requires ENABLE_MCP_WRITES=true and INTERNAL_API_SECRET." },
 
+  // Enrichment proposals (staging only — never mutates production)
+  { name: "get_tournament_enrichment_context", category: "enrichment", access: "read", description: "Read full production context for a tournament: fields, linked venues, and existing enrichment proposals. Use before staging a proposal." },
+  { name: "get_tournament_enrichment_proposals", category: "enrichment", access: "read", description: "List enrichment proposals with tournament context. Filter by tournament_id, status, action_type, sport, state, or source_batch_id." },
+  { name: "upsert_tournament_enrichment_proposal", category: "enrichment", access: "write", description: "Stage an enrichment proposal for a production tournament. Writes to tournament_enrichment_proposals only — never mutates production. Captures current_value from production at write time. Requires ENABLE_MCP_WRITES=true." },
+
   // Utility
   { name: "mcp_healthcheck", category: "utility", access: "read", description: "Confirm server configuration: writes enabled, mock mode, key presence. Does not reveal secret values." },
   { name: "list_tools", category: "utility", access: "read", description: "Return the full inventory of available MCP tools with category, access level, and description." }

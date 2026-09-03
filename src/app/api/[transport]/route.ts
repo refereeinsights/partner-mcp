@@ -51,6 +51,9 @@ import { registerInsertCompleteSearchPackage } from "../../../tools/insertComple
 import { registerGetTournaments } from "../../../tools/getTournaments";
 import { registerFindProductionMatches } from "../../../tools/findProductionMatches";
 import { registerUploadTournamentsCsv } from "../../../tools/uploadTournamentsCsv";
+import { registerGetTournamentEnrichmentContext } from "../../../tools/getTournamentEnrichmentContext";
+import { registerGetTournamentEnrichmentProposals } from "../../../tools/getTournamentEnrichmentProposals";
+import { registerUpsertTournamentEnrichmentProposal } from "../../../tools/upsertTournamentEnrichmentProposal";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -129,6 +132,9 @@ const mcpHandler = createMcpHandler(
     registerGetTournamentRollForwardContext(server);
     registerUpsertRollForwardLog(server);
     registerUploadTournamentsCsv(server);
+    registerGetTournamentEnrichmentContext(server);
+    registerGetTournamentEnrichmentProposals(server);
+    registerUpsertTournamentEnrichmentProposal(server);
 
     // Search-history reads: always registered (internal/operational data,
     // queried with the same service-role client as everything else here).
