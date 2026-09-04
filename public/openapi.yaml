@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: TournamentInsights Intelligence API
   description: Data intelligence and partner monetization tools for TournamentInsights / RefereeInsights
-  version: 1.9.0
+  version: 1.9.1
 
 servers:
   - url: https://partnermcp-git-main-rod-davis-projects.vercel.app
@@ -141,9 +141,15 @@ paths:
                     merge_duplicate → {"duplicate_tournament_id":"uuid","duplicate_name":"...","duplicate_slug":"..."},
                     manual_review → {"issue":"description"}.
 
-                enrichment_action_type:
+                tournament_id:
                   type: string
-                  description: Enrichment proposal action type (upsert_tournament_enrichment_proposal).
+                  description: >
+                    UUID of the tournament. Required for get_tournament_enrichment_context and
+                    upsert_tournament_enrichment_proposal. Optional filter for get_tournament_enrichment_proposals.
+
+                action_type:
+                  type: string
+                  description: Enrichment proposal action type. Used by upsert_tournament_enrichment_proposal (required) and get_tournament_enrichment_proposals (optional filter).
                   enum:
                     - add_official_source
                     - correct_dates
@@ -601,7 +607,10 @@ paths:
 
                 evidence_summary:
                   type: string
-                  description: Summary of the evidence supporting the organizer intelligence. Required for all confidence levels.
+                  description: >
+                    Summary of evidence. For upsert_tournament_enrichment_proposal: required, describe what
+                    confirms the proposed value (source URL, page text, etc.). For insert_search_organizer_intelligence:
+                    required, describes evidence supporting the organizer intelligence entry.
 
                 tournament_families:
                   type: array
